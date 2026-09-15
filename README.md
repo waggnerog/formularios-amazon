@@ -1,6 +1,6 @@
 # Portal de Campo — Amazon Devices
 
-Portal em HTML/CSS/JavaScript puro, preparado para GitHub Pages, com Supabase como backend de respostas, autenticação e arquivos.
+Portal em HTML/CSS/JavaScript puro publicado em **[waggnerog/formularios-amazon](https://github.com/waggnerog/formularios-amazon)**, preparado para GitHub Pages, com Supabase como backend de respostas, autenticação e arquivos.
 
 ## O que está pronto
 
@@ -49,15 +49,16 @@ A chave pública pode ficar no HTML. A segurança está nas permissões do banco
 
 ## Publicação no GitHub Pages
 
-1. Crie um repositório público vazio, por exemplo `formularios-amazon`.
-2. Envie estes arquivos para a branch `main`.
-3. No repositório, abra **Settings > Pages**.
-4. Escolha **Deploy from a branch**, branch `main` e pasta `/ (root)`.
+Os arquivos já estão na branch `main`. Para ativar o endereço público:
 
-O endereço terá o formato:
+1. Abra **Settings > Pages** no repositório.
+2. Em **Build and deployment**, escolha **Deploy from a branch**.
+3. Selecione a branch `main`, a pasta `/ (root)` e salve.
+
+Endereço do portal após a ativação:
 
 ```text
-https://SEU-USUARIO.github.io/formularios-amazon/
+https://waggnerog.github.io/formularios-amazon/
 ```
 
 ## Como os arquivos ficam protegidos
