@@ -43,5 +43,6 @@ assert.ok(html.includes("COLE_AQUI_SUA_SUPABASE_ANON_KEY"), "placeholder da chav
 assert.ok(html.includes('sb.rpc("create_submission"'), "frontend deve criar envios pela função protegida");
 assert.ok(html.includes('sb.rpc("complete_submission"'), "frontend deve concluir envios pela função protegida");
 assert.ok(html.includes("Content-Security-Policy"), "política de conteúdo ausente");
+assert.ok(html.includes("@supabase/supabase-js@2.116.0"), "cliente Supabase deve usar versão fixa");
 
 console.log("Verificação concluída: 10 formulários, JavaScript válido e contrato de segurança presente.");
