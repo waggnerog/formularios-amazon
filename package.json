@@ -1,0 +1,9 @@
+{
+  "name": "portal-formularios-amazon",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Portal estático de formulários para GitHub Pages",
+  "scripts": {
+    "test": "node scripts/check.mjs"
+  }
+}
