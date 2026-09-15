@@ -75,7 +75,7 @@ as $$
   );
 $$;
 
-revoke all on function public.is_admin() from public;
+revoke all on function public.is_admin() from public, anon, authenticated;
 grant execute on function public.is_admin() to authenticated;
 
 drop policy if exists admin_read_submissions on public.submissions;
@@ -249,7 +249,7 @@ begin
 end;
 $$;
 
-revoke all on function public.create_submission(text, jsonb, jsonb) from public;
+revoke all on function public.create_submission(text, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.create_submission(text, jsonb, jsonb) to anon, authenticated;
 
 -- O Storage aceita somente caminhos previamente reservados por create_submission.
@@ -270,7 +270,7 @@ as $$
   );
 $$;
 
-revoke all on function public.is_expected_upload(text) from public;
+revoke all on function public.is_expected_upload(text) from public, anon, authenticated;
 grant execute on function public.is_expected_upload(text) to anon, authenticated;
 
 -- So conclui a resposta quando todos os anexos reservados chegaram ao bucket.
@@ -314,7 +314,7 @@ begin
 end;
 $$;
 
-revoke all on function public.complete_submission(uuid, uuid) from public;
+revoke all on function public.complete_submission(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.complete_submission(uuid, uuid) to anon, authenticated;
 
 -- Bucket privado: 200 MB por arquivo e somente os formatos utilizados no portal.
