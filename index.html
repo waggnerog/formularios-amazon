@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#673ab7">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob: https://*.supabase.co; media-src 'self' blob: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23673ab7'/%3E%3Cpath d='M18 47 29 17h7l11 30h-8l-2-7H27l-2 7Zm11-14h6l-3-9Z' fill='white'/%3E%3C/svg%3E">
+  <title>Portal de Campo | Amazon Devices</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+  <style>
+    :root{--bg:#f0ebf8;--surface:#fff;--ink:#202124;--muted:#5f6368;--line:#dadce0;--accent:#673ab7;--accent2:#5b32a3;--dark:#fff;--ok:#137333;--danger:#b3261e;--radius:9px}
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    button,input,select,textarea{font:inherit} button{cursor:pointer}
+    .topbar{position:sticky;top:0;z-index:20;background:#fff;color:var(--ink);border-bottom:1px solid var(--line);box-shadow:0 1px 2px rgba(60,64,67,.08)}
+    .topbar-inner{max-width:1120px;margin:auto;padding:14px 18px;display:flex;gap:14px;align-items:center;justify-content:space-between}
+    .brand{display:flex;gap:11px;align-items:center;font-weight:700;letter-spacing:.1px}.brand-mark{width:34px;height:34px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:900}
+    .nav{display:flex;gap:8px}.btn{border:0;border-radius:5px;padding:10px 15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;min-height:42px}
+    .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}.btn-ghost{background:#fff;color:var(--accent);border:1px solid var(--line)}
+    .btn-soft{background:#fff;color:var(--accent);border:1px solid var(--accent)}.btn-danger{background:#fff;color:var(--danger);border:1px solid #f2b8b5}.btn:disabled{opacity:.5;cursor:not-allowed}
+    .container{max-width:1120px;margin:auto;padding:24px 18px 70px}
+    .hero,.form-head{background:#fff;color:var(--ink);border:1px solid var(--line);border-top:10px solid var(--accent);border-radius:var(--radius);padding:24px;margin-bottom:16px;box-shadow:none}
+    .hero h1{margin:0 0 8px;font-size:clamp(28px,5vw,36px);font-weight:500;line-height:1.15}.hero p{margin:0;color:var(--muted);max-width:720px;font-size:16px;line-height:1.55}
+    .section-title{margin:26px 0 10px;font-size:19px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:none}
+    .form-card{transition:.18s ease;cursor:pointer}.form-card:hover,.form-card:focus{box-shadow:0 2px 7px rgba(60,64,67,.2);border-color:var(--accent);outline:none}.tag{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);display:inline-block}
+    .form-card h3{margin:10px 0 8px;font-size:17px}.form-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+    .page{display:none}.page.active{display:block}.form-shell{max-width:780px;margin:auto}.form-head h1{margin:8px 0;font-weight:500}.back{color:var(--accent);text-decoration:none;font-weight:700}
+    .progress-wrap{height:4px;background:#d7cbea;overflow:hidden;margin:-16px 1px 16px}.progress{height:100%;background:var(--accent);width:0;transition:.2s}
+    .field{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;margin:0 0 12px}.field:focus-within{border-left:6px solid var(--accent);padding-left:19px}.field label{display:block;font-weight:500;margin-bottom:9px;line-height:1.4}.field .help{color:var(--muted);font-size:13px;line-height:1.5;margin:-2px 0 10px}
+    .field input,.field select,.field textarea{width:100%;border:0;border-bottom:1px solid #9aa0a6;border-radius:0;padding:11px 2px;background:#fff;color:#202124;outline:none}.field textarea{min-height:120px;resize:vertical;border:1px solid #9aa0a6;border-radius:4px;padding:12px}.field input:focus,.field select:focus{border-bottom:2px solid var(--accent)}.field textarea:focus{border:2px solid var(--accent)}
+    .section-block{margin:22px 0 10px;padding:13px 15px;border-left:4px solid var(--accent);background:#fff7ed;border-radius:10px;font-weight:850}.required::after{content:" *";color:#dc2626}
+    .filebox{border:1.5px dashed #cbd5e1;border-radius:12px;padding:14px}.preview{margin-top:10px;display:flex;gap:10px;align-items:center;color:var(--muted);font-size:13px}.preview img{width:76px;height:58px;object-fit:cover;border-radius:8px;border:1px solid #ddd}
+    .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}.notice{border-radius:14px;padding:13px 15px;margin:14px 0;font-size:14px;line-height:1.45}.notice-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.notice-ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}.notice-error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+    .success{text-align:center;padding:50px 20px}.success .check{width:64px;height:64px;border-radius:50%;background:#d1fae5;color:#047857;display:grid;place-items:center;margin:0 auto 16px;font-size:30px}
+    .admin-shell{max-width:1120px;margin:auto}.admin-login{max-width:440px;margin:40px auto;background:#fff;padding:24px;border-radius:18px;border:1px solid var(--line)}.admin-login h2{margin-top:0}.admin-login input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin:6px 0 12px}
+    .admin-toolbar{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.admin-toolbar select,.admin-toolbar input{padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}.stat b{font-size:26px;display:block}.stat span{color:var(--muted);font-size:13px}
+    .table-wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px}table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;padding:12px 13px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top}th{background:#f9fafb;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#4b5563}.row-actions{display:flex;gap:6px;flex-wrap:wrap}.mini{padding:7px 9px;border-radius:8px;border:1px solid #d1d5db;background:white;font-weight:700}
+    dialog{border:0;border-radius:18px;max-width:720px;width:min(92vw,720px);padding:0;box-shadow:0 25px 80px rgba(0,0,0,.3)}dialog::backdrop{background:rgba(0,0,0,.45)}.dialog-head{padding:18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}.dialog-body{padding:18px;max-height:70vh;overflow:auto}.kv{display:grid;grid-template-columns:220px 1fr;gap:8px 16px;padding:8px 0;border-bottom:1px solid #f1f5f9}.kv b{font-size:13px}.kv div{white-space:pre-wrap;font-size:14px}
+    .hidden{display:none!important}.muted{color:var(--muted)}.small{font-size:12px}.footer{text-align:center;color:#6b7280;font-size:12px;margin-top:40px}
+    @media(max-width:820px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.hero{padding:23px}.nav .label{display:none}}
+    @media(max-width:560px){.grid{grid-template-columns:1fr}.topbar-inner{padding:11px 14px}.container{padding:18px 13px 60px}.hero{border-radius:18px;padding:21px}.field{padding:15px}.actions{flex-direction:column}.actions .btn{width:100%}.stats{grid-template-columns:1fr 1fr}.kv{grid-template-columns:1fr;gap:2px}.admin-toolbar>*{flex:1 1 100%}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand" onclick="goHome()" role="button" tabindex="0">
+        <div class="brand-mark">A</div><div>Portal de Campo</div>
+      </div>
+      <nav class="nav">
+        <button class="btn btn-ghost" onclick="goHome()">⌂ <span class="label">Formulários</span></button>
+        <button class="btn btn-ghost" onclick="openAdmin()">🔒 <span class="label">Admin</span></button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="homePage" class="page active">
+      <div class="hero">
+        <h1>Formulários de Campo</h1>
+        <p>Escolha abaixo o formulário que deseja preencher.</p>
+      </div>
+      <div id="configHome"></div>
+      <div id="homeForms"></div>
+      <div class="footer">Portal operacional de campo</div>
+    </section>
+
+    <section id="formPage" class="page">
+      <div class="form-shell">
+        <a class="back" href="#/" onclick="goHome()">← Voltar aos formulários</a>
+        <div class="form-head">
+          <div class="tag" id="formCategory"></div>
+          <h1 id="formTitle"></h1>
+          <p class="muted" id="formDescription"></p>
+        </div>
+        <div class="progress-wrap"><div id="formProgress" class="progress"></div></div>
+        <form id="dynamicForm"></form>
+        <div id="formMessage"></div>
+        <div class="actions">
+          <button class="btn btn-primary" id="submitBtn" type="button" onclick="submitCurrentForm()">Enviar formulário</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="successPage" class="page">
+      <div class="form-shell card success">
+        <div class="check">✓</div>
+        <h2>Registro enviado</h2>
+        <p class="muted">As informações foram registradas com sucesso.</p>
+        <button class="btn btn-primary" onclick="goHome()">Voltar para os formulários</button>
+      </div>
+    </section>
+
+    <section id="adminPage" class="page">
+      <div class="admin-shell">
+        <div id="adminLogin" class="admin-login">
+          <h2>Área administrativa</h2>
+          <p class="muted">Acesso restrito ao administrador.</p>
+          <label>E-mail</label><input id="adminEmail" type="email" autocomplete="username">
+          <label>Senha</label><input id="adminPassword" type="password" autocomplete="current-password">
+          <button class="btn btn-primary" style="width:100%" onclick="adminSignIn()">Entrar</button>
+          <div id="adminLoginMessage"></div>
+        </div>
+
+        <div id="adminPanel" class="hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <div><h1 style="margin-bottom:3px">Administração</h1><div class="muted">Respostas, anexos e exportações</div></div>
+            <button class="btn btn-danger" onclick="adminSignOut()">Sair</button>
+          </div>
+          <div id="adminConfigNotice"></div>
+          <div class="stats">
+            <div class="stat"><b id="statTotal">0</b><span>respostas</span></div>
+            <div class="stat"><b id="statMaintenance">0</b><span>chamados</span></div>
+            <div class="stat"><b id="statForms">0</b><span>formulários com respostas</span></div>
+            <div class="stat"><b id="statFiles">0</b><span>anexos</span></div>
+          </div>
+          <div class="admin-toolbar">
+            <select id="filterForm" onchange="renderAdminTable()"><option value="">Todos os formulários</option></select>
+            <input id="filterText" placeholder="Consultor, loja ou conteúdo" oninput="renderAdminTable()">
+            <input id="filterStart" type="date" onchange="renderAdminTable()">
+            <input id="filterEnd" type="date" onchange="renderAdminTable()">
+            <button class="btn btn-soft" onclick="exportFilteredExcel()">Exportar Excel</button>
+            <button class="btn btn-soft" onclick="exportAllExcel()">Exportar tudo</button>
+            <button class="btn btn-soft" onclick="exportMaintenanceBatch()">Chamados em lote</button>
+            <button class="btn btn-danger" onclick="cleanupIncomplete()">Limpar incompletos</button>
+          </div>
+          <div id="adminStatus"></div>
+          <div class="table-wrap"><table><thead><tr><th>Data</th><th>Formulário</th><th>Consultor / Nome</th><th>Loja / Rede</th><th>Ações</th></tr></thead><tbody id="adminRows"></tbody></table></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="detailDialog">
+    <div class="dialog-head"><strong>Detalhes da resposta</strong><button class="mini" onclick="detailDialog.close()">Fechar</button></div>
+    <div class="dialog-body" id="detailBody"></div>
+  </dialog>
+
+<script>
+/* =========================================================
+   CONFIGURAÇÃO
+   Preencha APENAS estas duas constantes depois de criar o
+   projeto no Supabase. A anon key pode ficar no HTML:
+   a segurança depende das políticas RLS do arquivo SQL.
+   ========================================================= */
+const SUPABASE_URL = "COLE_AQUI_SUA_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "COLE_AQUI_SUA_SUPABASE_ANON_KEY";
+const STORAGE_BUCKET = "field-evidence";
+
+const CONFIGURED = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 40 && !SUPABASE_ANON_KEY.includes("COLE_AQUI");
+const sb = CONFIGURED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
+
+const FORMS = [
+  {
+    key:"overview-carrefour", title:"Formulário Semanal — Overview Carrefour", category:"Overview Semanal",
+    description:"Registro semanal dos principais fatores que influenciaram a performance na rede Carrefour.",
+    fields:[
+      {k:"consultor",l:"Nome do consultor",t:"text",req:true},
+      {k:"highlights",l:"Highlights — Carrefour: o que ajudou nossa performance nesta semana?",t:"textarea",req:true,h:"Informe loja, produto e impacto positivo percebido."},
+      {k:"lowlights",l:"Lowlights — Carrefour: o que dificultou ou desviou vendas nesta semana?",t:"textarea",req:true,h:"Informe loja, produto ou concorrente, condição observada e impacto percebido."},
+      {k:"impacto",l:"Principal impacto da semana — qual fator mais influenciou nossa performance?",t:"textarea",req:true,h:"Destaque o fator mais relevante, positivo ou negativo, e explique por quê."},
+      ...[1,2,3,4].map(n=>({k:"evidencia"+n,l:"Evidência "+n+" (foto, print, mensagem ou material de loja)",t:"file",accept:"image/*,.pdf",req:false}))
+    ]
+  },
+  {
+    key:"alexa-kindle-week", title:"Avaliação de Campo — Alexa Week & Kindle Week", category:"Ações / Concorrência",
+    description:"Avaliação da ação, percepção de loja e clientes e impacto em vendas.",
+    fields:[
+      {section:"Identificação"},{k:"consultor",l:"Nome do consultor",t:"text",req:true},{k:"rede",l:"Rede",t:"select",opts:["Fast Shop","Claro","Vivo","Carrefour","Outra"],req:true},{k:"loja",l:"Nome da loja",t:"text",req:true},{k:"acao",l:"Qual ação está sendo avaliada?",t:"text",req:true},
+      {section:"Preço e oferta"},{k:"rebaixa",l:"Houve rebaixa de preço durante a ação?",t:"select",opts:["Sim","Não","Não soube informar"],req:true},{k:"rebaixa_detalhe",l:"Se houve rebaixa, informe o produto e a condição/preço observado",t:"textarea"},
+      {section:"Percepção dos vendedores"},{k:"vendedores_percepcao",l:"Como os vendedores perceberam a ação?",t:"select",opts:["Muito positiva","Positiva","Neutra","Negativa","Muito negativa"],req:true},{k:"vendedores_comentarios",l:"O que os vendedores comentaram ou demonstraram na prática?",t:"textarea",req:true},
+      {section:"Percepção dos clientes"},{k:"clientes_percepcao",l:"Como os clientes perceberam a ação?",t:"select",opts:["Muito positiva","Positiva","Neutra","Negativa","Muito negativa"],req:true},{k:"clientes_reacao",l:"Como os clientes reagiram à ação?",t:"textarea",req:true},
+      {section:"Conversão em vendas"},{k:"gerou_vendas",l:"Na sua percepção, a ação ajudou a gerar vendas?",t:"select",opts:["Sim, claramente","Sim, parcialmente","Não percebi impacto","Não houve vendas","Não consigo avaliar"],req:true},{k:"impacto_vendas",l:"Explique o impacto nas vendas",t:"textarea",req:true},
+      {section:"Percepção do consultor"},{k:"efetividade",l:"Como você avalia a efetividade da ação nesta loja?",t:"select",opts:["Muito efetiva","Efetiva","Neutra","Pouco efetiva","Nada efetiva"],req:true},{k:"avaliacao_final",l:"Na sua visão, o que funcionou bem e o que poderia ser melhorado?",t:"textarea",req:true},{k:"observacao",l:"Observação final",t:"textarea"}
+    ]
+  },
+  {
+    key:"atestados", title:"Envio de Atestados de Campo", category:"Documentos / Atestados",
+    description:"Envio de documento ou atestado em PDF.",
+    fields:[
+      {k:"nome",l:"Nome completo",t:"text",req:true,h:"Digite o nome completo exatamente como consta no documento."},
+      {k:"data_documento",l:"Data do documento/atestado",t:"date",req:true,h:"Informe a data que aparece no documento."},
+      {k:"pdf",l:"Enviar arquivo PDF",t:"file",accept:"application/pdf,.pdf",req:true,h:"Envie o atestado ou documento em formato PDF."}
+    ]
+  },
+  {
+    key:"manutencao", title:"Solicitação de Manutenção | Expositores Amazon", category:"Manutenção",
+    description:"Registro completo para abertura e acompanhamento de manutenção de expositores.",
+    fields:[
+      {section:"Identificação"},{k:"consultor",l:"Nome do consultor",t:"text",req:true},{k:"data_solicitacao",l:"Data da solicitação",t:"date",req:true},
+      {section:"Local da ocorrência"},{k:"loja",l:"Nome da loja",t:"text",req:true},{k:"cnpj",l:"CNPJ",t:"text",req:true},{k:"endereco",l:"Endereço completo",t:"text",req:true,h:"Informe rua/avenida e número."},{k:"complemento",l:"Complemento",t:"text"},{k:"bairro",l:"Bairro",t:"text",req:true},{k:"cidade",l:"Cidade",t:"text",req:true},{k:"uf",l:"Estado / UF",t:"text",req:true},{k:"cep",l:"CEP",t:"text",req:true},
+      {section:"Problema identificado"},{k:"problema",l:"Descreva detalhadamente o problema identificado",t:"textarea",req:true,h:"Explique o que está acontecendo, qual produto ou parte do expositor foi afetada, há quanto tempo o problema ocorre e quais testes ou tentativas de correção já foram feitos. Evite respostas genéricas."},
+      {section:"Evidências obrigatórias"},{info:"Envie arquivos já salvos no celular ou computador. As quatro evidências abaixo são obrigatórias para o envio da solicitação."},
+      {k:"foto1",l:"Foto 1 — visão geral do expositor",t:"file",accept:"image/*",req:true},{k:"foto2",l:"Foto 2 — detalhe do problema",t:"file",accept:"image/*",req:true},{k:"foto3",l:"Foto 3 — evidência complementar",t:"file",accept:"image/*",req:true},{k:"video",l:"Vídeo da ocorrência",t:"file",accept:"video/*",req:true}
+    ]
+  },
+  {
+    key:"fact-card", title:"Evidência de Troca de Fact Card — Echo Show 8", category:"Evidências",
+    description:"Confirmação da troca do Fact Card com evidências fotográficas.",
+    fields:[
+      {k:"loja",l:"Nome da loja",t:"text",req:true},{k:"trocado",l:"O Fact Card do Echo Show 8 foi trocado corretamente?",t:"select",opts:["Sim","Não"],req:true},{k:"observacoes",l:"Observações adicionais",t:"textarea"},
+      {k:"foto1",l:"Foto 1 — visão geral do display",t:"file",accept:"image/*",req:true},{k:"foto2",l:"Foto 2 — detalhe do Fact Card",t:"file",accept:"image/*",req:true}
+    ]
+  },
+  ...["Vivo","Claro","Fast Shop"].map(rede=>({
+    key:"overview-"+rede.toLowerCase().replaceAll(" ","-"),title:"Formulário Semanal — Overview "+rede,category:"Overview Semanal",
+    description:"Registro semanal dos principais fatores positivos, negativos e do principal impacto observado na rede "+rede+".",
+    fields:[
+      {k:"consultor",l:"NOME DO CONSULTOR",t:"text",req:true},
+      {k:"highlights",l:"HIGHLIGHTS — "+rede+": o que ajudou nossa performance nesta semana?",t:"textarea",req:true,h:"Observe preço ou campanha favorável, boa exposição, estoque disponível, vendedores engajados ou maior procura. Informe loja, produto e impacto positivo percebido."},
+      {k:"lowlights",l:"LOWLIGHTS — "+rede+": o que dificultou ou desviou vendas nesta semana?",t:"textarea",req:true,h:"Observe concorrência, preços mais atrativos em outros canais, exposição fraca, falta de estoque ou baixo foco dos vendedores. Informe loja, produto ou concorrente, condição e impacto."},
+      {k:"impacto",l:"PRINCIPAL IMPACTO DA SEMANA — qual fator mais influenciou nossa performance?",t:"textarea",req:true,h:"Pode ser preço, estoque, campanha, exposição, concorrência, treinamento ou foco dos vendedores. Informe loja, produto e por que esse ponto foi o mais relevante."},
+      {section:"Evidências da semana"},{info:"Anexe até 4 evidências, se houver. Use fotos, prints, mensagens ou materiais de loja que sustentem as informações registradas."},
+      ...[1,2,3,4].map(n=>({k:"evidencia"+n,l:"Evidência "+n,t:"file",accept:"image/*,.pdf",req:false}))
+    ]
+  })),
+  ...["Vivo","Fast Shop"].map(rede=>({
+    key:"concorrencia-"+rede.toLowerCase().replaceAll(" ","-"),title:"Monitoramento de Concorrência — "+rede,category:"Ações / Concorrência",
+    description:"Registro estruturado de ações concorrentes e impacto percebido no campo.",
+    fields:[
+      {section:"Identificação da ocorrência"},{k:"consultor",l:"Nome do consultor/promotor respondente",t:"text",req:true},{k:"data",l:"Data da observação",t:"date",req:true},{k:"loja",l:"Loja/unidade "+rede,t:"text",req:true},{k:"cidade",l:"Cidade",t:"text",req:true},{k:"uf",l:"UF",t:"text",req:true},{k:"marca",l:"Marca concorrente observada",t:"text",req:true},{k:"acao",l:"Nome ou tipo da ação",t:"text",req:true},{k:"descricao",l:"Descrição da ação concorrente",t:"textarea",req:true},{k:"objetivo",l:"Qual parece ser o objetivo da ação?",t:"textarea",req:true},{k:"duracao",l:"Duração ou período da ação",t:"text"},
+      {section:"Percepção e reação da loja"},{k:"reacao_vendedores",l:"Como os vendedores da loja perceberam ou reagiram à ação concorrente?",t:"textarea",req:true},{k:"feedback",l:"Feedback do promotor/consultor sobre a ação concorrente",t:"textarea",req:true},
+      {section:"Impacto em vendas no dia"},{k:"venda_dia",l:"A ação trouxe venda naquele dia?",t:"select",opts:["Sim","Não","Não foi possível avaliar"],req:true},{k:"venda_dia_detalhe",l:"Detalhe a quantidade, produtos ou evidências de venda",t:"textarea"},
+      {section:"Impacto em vendas ao longo do período"},{k:"venda_periodo",l:"A ação parece estar gerando vendas ao longo do período?",t:"select",opts:["Sim","Não","Ainda não é possível avaliar"],req:true},{k:"impacto_periodo",l:"Explique o impacto percebido nas vendas e no comportamento do cliente",t:"textarea",req:true},
+      {section:"Impacto em Devices Amazon"},{k:"impacto_amazon",l:"A ação impactou ou pode impactar as vendas de Devices Amazon?",t:"select",opts:["Sim","Não","Talvez"],req:true},{k:"impacto_amazon_detalhe",l:"Explique como impactou ou pode impactar",t:"textarea",req:true}
+    ]
+  }))
+];
+
+let currentForm=null, adminSubmissions=[], adminAttachments=[];
+
+function showPage(id){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.getElementById(id).classList.add("active");window.scrollTo({top:0,behavior:"smooth"})}
+function goHome(){location.hash="/";showPage("homePage")}
+function openAdmin(){location.hash="/admin";showPage("adminPage");adminInit()}
+function route(){const h=location.hash||"#/";if(h==="#/admin"){openAdmin();return}const m=h.match(/^#\/form\/(.+)$/);if(m){openForm(m[1]);return}goHome()}
+window.addEventListener("hashchange",route);
+
+function home(){
+  const groups={};
+  FORMS.forEach(f=>(groups[f.category]??=[]).push(f));
+  document.getElementById("homeForms").innerHTML=Object.entries(groups).map(([cat,forms])=>`<h2 class="section-title">${cat}</h2><div class="grid">${forms.map(f=>`<article class="card form-card" role="link" tabindex="0" onclick="location.hash='/form/${f.key}'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='/form/${f.key}'}"><span class="tag">${cat}</span><h3>${f.title}</h3><p>${f.description}</p></article>`).join("")}</div>`).join("");
+  document.getElementById("configHome").innerHTML = CONFIGURED ? "" : `<div class="notice notice-info"><b>Modo de configuração:</b> o HTML está pronto, mas os envios ficam bloqueados até preencher SUPABASE_URL e SUPABASE_ANON_KEY no início do arquivo.</div>`;
+}
+function openForm(key){
+  currentForm=FORMS.find(f=>f.key===key);if(!currentForm){goHome();return}
+  showPage("formPage");document.getElementById("formCategory").textContent=currentForm.category;document.getElementById("formTitle").textContent=currentForm.title;document.getElementById("formDescription").textContent=currentForm.description;
+  renderForm();
+}
+function renderForm(){
+  const root=document.getElementById("dynamicForm"); root.innerHTML="";
+  currentForm.fields.forEach((f,i)=>{
+    if(f.section){const d=document.createElement("div");d.className="section-block";d.textContent=f.section;root.appendChild(d);return}
+    if(f.info){const d=document.createElement("div");d.className="notice notice-info";d.textContent=f.info;root.appendChild(d);return}
+    const wrap=document.createElement("div");wrap.className="field";const cls=f.req?"required":"";
+    let ctl="";
+    if(f.t==="textarea") ctl=`<textarea id="fld_${f.k}" maxlength="5000" ${f.req?"required":""}></textarea>`;
+    else if(f.t==="select") ctl=`<select id="fld_${f.k}" ${f.req?"required":""}><option value="">Selecione</option>${f.opts.map(x=>`<option>${x}</option>`).join("")}</select>`;
+    else if(f.t==="file") ctl=`<div class="filebox"><input id="fld_${f.k}" type="file" accept="${f.accept||"*/*"}" ${f.req?"required":""} onchange="previewFile('${f.k}')"><div id="prev_${f.k}" class="preview"></div></div>`;
+    else ctl=`<input id="fld_${f.k}" type="${f.t||"text"}" maxlength="500" ${f.req?"required":""}>`;
+    wrap.innerHTML=`<label class="${cls}">${f.l}</label>${f.h?`<div class="help">${f.h}</div>`:""}${ctl}`;root.appendChild(wrap);
+  });
+  document.getElementById("submitBtn").disabled=!CONFIGURED;
+  document.getElementById("formMessage").innerHTML=CONFIGURED?"":`<div class="notice notice-info">Envio desativado enquanto o backend seguro não estiver configurado.</div>`;
+  root.addEventListener("input",updateProgress);updateProgress();
+}
+function updateProgress(){
+  if(!currentForm)return;const req=currentForm.fields.filter(f=>f.k&&f.req),done=req.filter(f=>{const el=document.getElementById("fld_"+f.k);return el && (el.type==="file"?el.files.length:el.value.trim())}).length;
+  document.getElementById("formProgress").style.width=(req.length?done/req.length*100:0)+"%";
+}
+function previewFile(k){
+  const el=document.getElementById("fld_"+k),box=document.getElementById("prev_"+k);box.innerHTML="";if(!el.files[0])return;const f=el.files[0];
+  if(f.type.startsWith("image/")){const img=document.createElement("img");img.src=URL.createObjectURL(f);box.appendChild(img)}
+  const txt=document.createElement("span");txt.textContent=`${f.name} • ${(f.size/1024/1024).toFixed(1)} MB`;box.appendChild(txt);updateProgress();
+}
+function fileLimitOK(field,file){
+  const max=field.accept?.includes("video")?200:15;
+  return file.size <= max*1024*1024;
+}
+function resolvedMime(file){
+  if(file.type)return file.type.toLowerCase();
+  const ext=(file.name.split(".").pop()||"").toLowerCase();
+  return ({jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",heic:"image/heic",heif:"image/heif",pdf:"application/pdf",mp4:"video/mp4",mov:"video/quicktime",webm:"video/webm",m4v:"video/x-m4v"})[ext]||"application/octet-stream";
+}
+function fileTypeOK(field,file){
+  const mime=resolvedMime(file),accept=field.accept||"";
+  if(accept.includes("video"))return mime.startsWith("video/");
+  if(accept.includes("application/pdf")&&!accept.includes("image"))return mime==="application/pdf";
+  if(accept.includes("image")&&accept.includes(".pdf"))return mime.startsWith("image/")||mime==="application/pdf";
+  if(accept.includes("image"))return mime.startsWith("image/");
+  return false;
+}
+async function submitCurrentForm(){
+  if(!CONFIGURED)return;
+  const msg=document.getElementById("formMessage");msg.innerHTML="";
+  const answers={},files=[];
+  for(const f of currentForm.fields){
+    if(!f.k)continue;const el=document.getElementById("fld_"+f.k);
+    if(f.t==="file"){
+      const file=el.files[0];if(f.req&&!file){msg.innerHTML=`<div class="notice notice-error">Preencha todos os campos obrigatórios.</div>`;return}
+      if(file&&!fileLimitOK(f,file)){msg.innerHTML=`<div class="notice notice-error">O arquivo “${escapeHtml(file.name)}” excede o limite permitido.</div>`;return}
+      if(file&&!fileTypeOK(f,file)){msg.innerHTML=`<div class="notice notice-error">O formato de “${escapeHtml(file.name)}” não é permitido neste campo.</div>`;return}
+      if(file)files.push({field:f,file});
+    } else {
+      const val=el.value.trim();if(f.req&&!val){msg.innerHTML=`<div class="notice notice-error">Preencha todos os campos obrigatórios.</div>`;el.focus();return}answers[f.k]=val;
+    }
+  }
+  document.getElementById("submitBtn").disabled=true;msg.innerHTML=`<div class="notice notice-info">Enviando...</div>`;
+  try{
+    const descriptors=files.map(({field,file})=>({field_key:field.k,original_name:file.name,mime_type:resolvedMime(file),size_bytes:file.size}));
+    const {data:created,error:createError}=await sb.rpc("create_submission",{p_form_key:currentForm.key,p_answers:answers,p_files:descriptors});if(createError)throw createError;
+    const uploads=new Map((created.uploads||[]).map(x=>[x.field_key,x.storage_path]));
+    for(let i=0;i<files.length;i++){
+      const item=files[i],path=uploads.get(item.field.k);if(!path)throw new Error("O backend não reservou o arquivo "+item.field.k+".");msg.innerHTML=`<div class="notice notice-info">Enviando arquivo ${i+1} de ${files.length}...</div>`;
+      const {error:upErr}=await sb.storage.from(STORAGE_BUCKET).upload(path,item.file,{upsert:false,contentType:resolvedMime(item.file),cacheControl:"3600"});if(upErr)throw upErr;
+    }
+    const {error:completeError}=await sb.rpc("complete_submission",{p_submission_id:created.submission_id,p_public_token:created.public_token});if(completeError)throw completeError;
+    showPage("successPage");
+  }catch(err){console.error(err);msg.innerHTML=`<div class="notice notice-error"><b>Não foi possível concluir o envio.</b> ${escapeHtml(err.message||"Tente novamente.")} Se algum arquivo já tiver sido enviado, ele ficará como incompleto e poderá ser limpo pelo administrador.</div>`;document.getElementById("submitBtn").disabled=false}
+}
+
+async function adminInit(){
+  if(!CONFIGURED){document.getElementById("adminConfigNotice").innerHTML=`<div class="notice notice-info">Configure o Supabase no início do HTML para ativar a área administrativa.</div>`;return}
+  const {data:{session}}=await sb.auth.getSession();if(session){await checkAdminAndLoad()}else{document.getElementById("adminLogin").classList.remove("hidden");document.getElementById("adminPanel").classList.add("hidden")}
+}
+async function adminSignIn(){
+  if(!CONFIGURED)return;const email=document.getElementById("adminEmail").value.trim(),password=document.getElementById("adminPassword").value;
+  document.getElementById("adminLoginMessage").innerHTML=`<div class="notice notice-info">Verificando acesso...</div>`;
+  const {error}=await sb.auth.signInWithPassword({email,password});if(error){document.getElementById("adminLoginMessage").innerHTML=`<div class="notice notice-error">${escapeHtml(error.message)}</div>`;return}await checkAdminAndLoad();
+}
+async function checkAdminAndLoad(){
+  const {data,error}=await sb.rpc("is_admin");if(error||data!==true){await sb.auth.signOut();document.getElementById("adminLoginMessage").innerHTML=`<div class="notice notice-error">Usuário autenticado, mas sem permissão de administrador.</div>`;return}
+  document.getElementById("adminLogin").classList.add("hidden");document.getElementById("adminPanel").classList.remove("hidden");await loadAdminData();
+}
+async function adminSignOut(){if(sb)await sb.auth.signOut();location.hash="/";goHome()}
+async function fetchAllRows(table,completeOnly=false){
+  const all=[];let from=0;
+  while(true){let query=sb.from(table).select("*").order("created_at",{ascending:false}).range(from,from+999);if(completeOnly)query=query.eq("status","complete");const {data,error}=await query;if(error)throw error;all.push(...(data||[]));if(!data||data.length<1000)break;from+=1000}
+  return all;
+}
+async function loadAdminData(){
+  setAdminStatus("Carregando respostas...","info");
+  try{const [s,a]=await Promise.all([fetchAllRows("submissions",true),fetchAllRows("attachments")]);const completeIds=new Set(s.map(x=>x.id));adminSubmissions=s;adminAttachments=a.filter(x=>completeIds.has(x.submission_id))}catch(error){setAdminStatus("Não foi possível carregar os dados: "+error.message,"error");return}
+  const sel=document.getElementById("filterForm");sel.innerHTML='<option value="">Todos os formulários</option>'+FORMS.map(f=>`<option value="${f.key}">${f.title}</option>`).join("");
+  document.getElementById("statTotal").textContent=adminSubmissions.length;document.getElementById("statMaintenance").textContent=adminSubmissions.filter(x=>x.form_key==="manutencao").length;document.getElementById("statForms").textContent=new Set(adminSubmissions.map(x=>x.form_key)).size;document.getElementById("statFiles").textContent=adminAttachments.length;renderAdminTable();setAdminStatus("","");
+}
+function setAdminStatus(message,type){document.getElementById("adminStatus").innerHTML=message?`<div class="notice notice-${type}">${escapeHtml(message)}</div>`:""}
+function getFiltered(){
+  const form=document.getElementById("filterForm").value,q=document.getElementById("filterText").value.toLowerCase().trim(),s=document.getElementById("filterStart").value,e=document.getElementById("filterEnd").value;
+  return adminSubmissions.filter(x=>{if(form&&x.form_key!==form)return false;const d=x.created_at.slice(0,10);if(s&&d<s)return false;if(e&&d>e)return false;if(q&&!JSON.stringify(x.answers).toLowerCase().includes(q)&&!x.form_title.toLowerCase().includes(q))return false;return true});
+}
+function renderAdminTable(){
+  const rows=getFiltered();document.getElementById("adminRows").innerHTML=rows.map(x=>{const a=x.answers||{};const who=a.consultor||a.nome||"";const where=a.loja||a.rede||"";return `<tr><td>${formatDate(x.submitted_at||x.created_at)}</td><td>${escapeHtml(x.form_title)}</td><td>${escapeHtml(who)}</td><td>${escapeHtml(where)}</td><td><div class="row-actions"><button class="mini" onclick="viewSubmission('${x.id}')">Ver</button>${x.form_key==="manutencao"?`<button class="mini" onclick="downloadMaintenance('${x.id}')">Gerar chamado padrão</button>`:""}<button class="mini" style="color:#b3261e" onclick="deleteSubmission('${x.id}')">Excluir</button></div></td></tr>`}).join("")||`<tr><td colspan="5" class="muted">Nenhuma resposta encontrada.</td></tr>`;
+}
+function viewSubmission(id){
+  const s=adminSubmissions.find(x=>x.id===id),f=FORMS.find(x=>x.key===s.form_key),att=adminAttachments.filter(a=>a.submission_id===id);let html="";
+  (f?.fields||[]).filter(x=>x.k&&x.t!=="file").forEach(x=>html+=`<div class="kv"><b>${escapeHtml(x.l)}</b><div>${escapeHtml((s.answers||{})[x.k]||"—")}</div></div>`);
+  if(att.length)html+=`<h3>Anexos</h3>`+att.map(a=>`<div class="kv"><b>${escapeHtml(labelFor(f,a.field_key))}</b><div><button class="mini" onclick="downloadAttachment('${a.id}')">${escapeHtml(a.original_name)}</button></div></div>`).join("");
+  document.getElementById("detailBody").innerHTML=html;detailDialog.showModal();
+}
+async function downloadAttachment(id){
+  const a=adminAttachments.find(x=>x.id===id);const {data,error}=await sb.storage.from(STORAGE_BUCKET).createSignedUrl(a.storage_path,600,{download:a.original_name});if(error){alert(error.message);return}window.open(data.signedUrl,"_blank");
+}
+async function deleteSubmission(id){
+  const submission=adminSubmissions.find(x=>x.id===id);if(!submission)return;const label=(submission.answers||{}).loja||(submission.answers||{}).consultor||submission.form_title;if(!confirm(`Excluir definitivamente esta resposta${label?` de “${label}”`:""} e todos os arquivos anexados?`))return;setAdminStatus("Excluindo resposta e arquivos...","info");
+  try{const paths=adminAttachments.filter(x=>x.submission_id===id).map(x=>x.storage_path);if(paths.length){const {error}=await sb.storage.from(STORAGE_BUCKET).remove(paths);if(error)throw error}const {error}=await sb.from("submissions").delete().eq("id",id);if(error)throw error;await loadAdminData();setAdminStatus("Resposta excluída.","ok")}catch(error){setAdminStatus("Não foi possível excluir: "+error.message,"error")}
+}
+async function cleanupIncomplete(){
+  if(!confirm("Limpar envios incompletos com mais de 24 horas? Respostas concluídas não serão afetadas."))return;setAdminStatus("Localizando envios incompletos...","info");
+  try{const cutoff=new Date(Date.now()-24*60*60*1000).toISOString();const {data:pending,error:pendingError}=await sb.from("submissions").select("id").eq("status","pending").lt("created_at",cutoff).limit(1000);if(pendingError)throw pendingError;const ids=(pending||[]).map(x=>x.id);if(!ids.length){setAdminStatus("Nenhum envio incompleto antigo para limpar.","ok");return}for(let start=0;start<ids.length;start+=100){const batch=ids.slice(start,start+100);const {data:files,error:fileError}=await sb.from("attachments").select("storage_path").in("submission_id",batch);if(fileError)throw fileError;const paths=(files||[]).map(x=>x.storage_path);if(paths.length){const {error:removeError}=await sb.storage.from(STORAGE_BUCKET).remove(paths);if(removeError)throw removeError}const {error:deleteError}=await sb.from("submissions").delete().in("id",batch);if(deleteError)throw deleteError}setAdminStatus(`${ids.length} envio(s) incompleto(s) removido(s).`,"ok")}catch(error){setAdminStatus("Não foi possível concluir a limpeza: "+error.message,"error")}
+}
+function labelFor(f,k){return f?.fields.find(x=>x.k===k)?.l||k}
+function formatDate(s){try{return new Date(s).toLocaleString("pt-BR")}catch{return s}}
+function escapeHtml(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function safeSheetName(s){return s.replace(/[\\/*?:[\]]/g," ").slice(0,31)||"Dados"}
+function safeFileName(s){return s.replace(/[\\/:*?"<>|_]/g," ").replace(/\s+/g," ").trim()}
+
+async function exportFilteredExcel(){await exportSubmissions(getFiltered(),"Respostas filtradas.xlsx")}
+async function exportAllExcel(){await exportSubmissions(adminSubmissions,"Todas as respostas.xlsx")}
+async function exportSubmissions(rows,filename){
+  if(!rows.length){alert("Não há respostas para exportar.");return}
+  const wb=new ExcelJS.Workbook(),by={};rows.forEach(r=>(by[r.form_key]??=[]).push(r));
+  for(const [key,list] of Object.entries(by)){
+    const def=FORMS.find(f=>f.key===key);const ws=wb.addWorksheet(safeSheetName(def?.title||key));const fields=(def?.fields||[]).filter(x=>x.k);
+    const headers=["ID","Criado em",...fields.filter(x=>x.t!=="file").map(x=>x.l),...fields.filter(x=>x.t==="file").map(x=>x.l)];
+    ws.addRow(headers);ws.getRow(1).font={bold:true};ws.views=[{state:"frozen",ySplit:1}];
+    for(const r of list){
+      const at=adminAttachments.filter(a=>a.submission_id===r.id);const vals=[r.id,formatDate(r.submitted_at||r.created_at),...fields.filter(x=>x.t!=="file").map(x=>(r.answers||{})[x.k]||""),...fields.filter(x=>x.t==="file").map(x=>at.filter(a=>a.field_key===x.k).map(a=>a.original_name).join("; "))];
+      ws.addRow(vals);
+    }
+    ws.columns.forEach(c=>c.width=Math.min(45,Math.max(14,...c.values.slice(1).map(v=>String(v??"").length+2))));ws.eachRow(r=>{r.alignment={vertical:"top",wrapText:true}})
+  }
+  const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),filename);
+}
+
+async function exportMaintenance(id,returnBuffer=false){
+  const s=adminSubmissions.find(x=>x.id===id);if(!s)return;const a=s.answers||{},files=adminAttachments.filter(x=>x.submission_id===id);
+  const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet("Solicitação Manutenção");
+  ws.columns=[{width:4},{width:42},{width:28},{width:4}];ws.pageSetup={orientation:"portrait",fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:.25,right:.25,top:.35,bottom:.35,header:.1,footer:.1}};
+  ws.mergeCells("B1:C1");ws.getCell("B1").value="SOLICITAÇÃO MANUTENÇÃO | EXPOSITORES AMAZON";ws.getCell("B1").font={bold:true,size:16};ws.getCell("B1").alignment={horizontal:"center",vertical:"middle"};ws.getRow(1).height=28;
+  ws.getCell("B3").value="NOME CONSULTOR: "+(a.consultor||"");ws.getCell("C3").value="DATA SOLICITAÇÃO: "+(a.data_solicitacao||"");
+  ws.mergeCells("B4:C4");ws.getCell("B4").value="DADOS DA LOJA";styleSection(ws.getCell("B4"));
+  ws.getCell("B5").value="NOME LOJA: "+(a.loja||"");ws.getCell("C5").value="CNPJ: "+(a.cnpj||"");
+  ws.mergeCells("B6:C6");ws.getCell("B6").value="ENDEREÇO: "+(a.endereco||"");
+  ws.mergeCells("B7:C7");ws.getCell("B7").value="COMPLEMENTO: "+(a.complemento||"");
+  ws.getCell("B8").value="BAIRRO: "+(a.bairro||"");ws.getCell("C8").value="CIDADE: "+(a.cidade||"");
+  ws.getCell("B9").value="UF: "+(a.uf||"");ws.getCell("C9").value="CEP: "+(a.cep||"");
+  ws.mergeCells("B10:C10");ws.getCell("B10").value="DETALHAR MOTIVO DA OCORRÊNCIA";styleSection(ws.getCell("B10"));
+  ws.mergeCells("B11:C12");ws.getCell("B11").value=a.problema||"";ws.getCell("B11").alignment={wrapText:true,vertical:"top"};ws.getRow(11).height=54;
+  ws.mergeCells("B13:C13");ws.getCell("B13").value="ANEXAR EVIDÊNCIAS FOTOGRÁFICAS ABAIXO";styleSection(ws.getCell("B13"));
+  ["B3","C3","B5","C5","B6","B7","B8","C8","B9","C9"].forEach(c=>{ws.getCell(c).font={bold:c.match(/^B|^C/) ? false:false};ws.getCell(c).alignment={wrapText:true,vertical:"middle"}});
+  const photoFields=["foto1","foto2","foto3"];let row=15;
+  for(const fk of photoFields){
+    const file=files.find(x=>x.field_key===fk);if(!file){row+=29;continue}
+    const {data,error}=await sb.storage.from(STORAGE_BUCKET).createSignedUrl(file.storage_path,600);if(error)throw error;const resp=await fetch(data.signedUrl);if(!resp.ok)throw new Error("Não foi possível abrir "+file.original_name);const blob=await resp.blob();
+    const imgData=await blobToExcelImage(blob);const imageId=wb.addImage({base64:imgData.base64,extension:imgData.extension});ws.addImage(imageId,{tl:{col:1.15,row:row-1+.4},ext:{width:560,height:330}});
+    for(let r=row;r<row+28;r++)ws.getRow(r).height=16;row+=30;
+  }
+  const vrow=row;ws.mergeCells(`B${vrow}:C${vrow}`);ws.getCell(`B${vrow}`).value="VÍDEO DA OCORRÊNCIA";styleSection(ws.getCell(`B${vrow}`));
+  const video=files.find(x=>x.field_key==="video");ws.mergeCells(`B${vrow+1}:C${vrow+1}`);
+  if(video){
+    const {data,error}=await sb.storage.from(STORAGE_BUCKET).createSignedUrl(video.storage_path,2592000);if(error)throw error;
+    ws.getCell(`B${vrow+1}`).value={text:"▶  ABRIR VÍDEO DA OCORRÊNCIA",hyperlink:data.signedUrl,tooltip:"Abrir vídeo da ocorrência"};
+    ws.getCell(`B${vrow+1}`).font={bold:true,color:{argb:"FF0057B8"},underline:true};ws.getCell(`B${vrow+1}`).alignment={horizontal:"center",vertical:"middle"};ws.getRow(vrow+1).height=30;
+  } else ws.getCell(`B${vrow+1}`).value="VÍDEO NÃO LOCALIZADO";
+  ["B1:C"+(vrow+1)].forEach(()=>{});for(let r=3;r<=12;r++){for(let c=2;c<=3;c++){const cell=ws.getCell(r,c);cell.border={top:{style:"thin",color:{argb:"FFD1D5DB"}},left:{style:"thin",color:{argb:"FFD1D5DB"}},bottom:{style:"thin",color:{argb:"FFD1D5DB"}},right:{style:"thin",color:{argb:"FFD1D5DB"}}}}}
+  const datePart=(a.data_solicitacao||"").split("-").reverse().join("-");const filename=`Chamado ${safeFileName(a.consultor||"Consultor")} ${safeFileName(a.loja||"Loja")}${datePart?` ${datePart}`:""}.xlsx`;
+  const buf=await wb.xlsx.writeBuffer();if(returnBuffer)return {buf,name:filename};saveAs(new Blob([buf]),filename);
+}
+async function downloadMaintenance(id){
+  setAdminStatus("Gerando chamado com as fotos...","info");
+  try{await exportMaintenance(id,false);setAdminStatus("Chamado gerado.","ok")}catch(error){setAdminStatus("Não foi possível gerar o chamado: "+error.message,"error")}
+}
+async function blobToExcelImage(blob){
+  let source=blob;if(blob.type==="image/heic"||blob.type==="image/heif"){if(typeof heic2any!=="function")throw new Error("Não foi possível converter uma foto HEIC.");const converted=await heic2any({blob,toType:"image/jpeg",quality:.86});source=Array.isArray(converted)?converted[0]:converted}
+  const url=URL.createObjectURL(source);
+  try{
+    const img=new Image();
+    await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
+    const max=1400,scale=Math.min(1,max/Math.max(img.naturalWidth||1,img.naturalHeight||1));
+    const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+    canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+    return {base64:canvas.toDataURL("image/jpeg",0.84),extension:"jpeg"};
+  } finally { URL.revokeObjectURL(url) }
+}
+function styleSection(cell){cell.font={bold:true,color:{argb:"FFFFFFFF"}};cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF232F3E"}};cell.alignment={horizontal:"center",vertical:"middle"}}
+async function exportMaintenanceBatch(){
+  const list=getFiltered().filter(x=>x.form_key==="manutencao");if(!list.length){alert("Nenhum chamado de manutenção no filtro atual.");return}
+  setAdminStatus(`Gerando ${list.length} chamado(s)...`,"info");
+  try{const zip=new JSZip(),used=new Set();for(const s of list){const r=await exportMaintenance(s.id,true);let name=r.name,n=2;while(used.has(name)){name=r.name.replace(/\.xlsx$/i,` (${n++}).xlsx`)}used.add(name);zip.file(name,r.buf)}const blob=await zip.generateAsync({type:"blob"});saveAs(blob,"Chamados de manutenção.zip");setAdminStatus("Pacote de chamados gerado.","ok")}catch(error){setAdminStatus("Não foi possível gerar o pacote: "+error.message,"error")}
+}
+
+home();route();
+</script>
+</body>
+</html>
