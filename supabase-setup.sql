@@ -4,6 +4,11 @@
 
 create extension if not exists pgcrypto;
 
+-- Funcoes auxiliares ficam fora do schema exposto pela Data API.
+create schema if not exists private;
+revoke all on schema private from public;
+grant usage on schema private to anon, authenticated;
+
 create table if not exists public.admin_users (
   user_id uuid primary key references auth.users(id) on delete cascade,
   created_at timestamptz not null default now()
@@ -61,19 +66,33 @@ revoke all on table public.attachments from anon, authenticated;
 grant select, delete on table public.submissions to authenticated;
 grant select, delete on table public.attachments to authenticated;
 
-create or replace function public.is_admin()
+create or replace function private.is_admin()
 returns boolean
 language sql
 stable
 security definer
 set search_path = ''
-as $$
+as $
   select exists (
     select 1
     from public.admin_users
     where user_id = (select auth.uid())
   );
-$$;
+$;
+
+revoke all on function private.is_admin() from public, anon, authenticated;
+grant execute on function private.is_admin() to authenticated;
+
+-- Endpoint publico sem privilegios elevados, usado somente para validar o login.
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security invoker
+set search_path = ''
+as $
+  select private.is_admin();
+$;
 
 revoke all on function public.is_admin() from public, anon, authenticated;
 grant execute on function public.is_admin() to authenticated;
@@ -81,22 +100,22 @@ grant execute on function public.is_admin() to authenticated;
 drop policy if exists admin_read_submissions on public.submissions;
 create policy admin_read_submissions on public.submissions
   for select to authenticated
-  using ((select public.is_admin()));
+  using ((select private.is_admin()));
 
 drop policy if exists admin_delete_submissions on public.submissions;
 create policy admin_delete_submissions on public.submissions
   for delete to authenticated
-  using ((select public.is_admin()));
+  using ((select private.is_admin()));
 
 drop policy if exists admin_read_attachments on public.attachments;
 create policy admin_read_attachments on public.attachments
   for select to authenticated
-  using ((select public.is_admin()));
+  using ((select private.is_admin()));
 
 drop policy if exists admin_delete_attachments on public.attachments;
 create policy admin_delete_attachments on public.attachments
   for delete to authenticated
-  using ((select public.is_admin()));
+  using ((select private.is_admin()));
 
 -- Cria uma resposta pendente e reserva caminhos privados para os anexos.
 -- Nao ha INSERT publico direto nas tabelas.
@@ -253,7 +272,8 @@ revoke all on function public.create_submission(text, jsonb, jsonb) from public,
 grant execute on function public.create_submission(text, jsonb, jsonb) to anon, authenticated;
 
 -- O Storage aceita somente caminhos previamente reservados por create_submission.
-create or replace function public.is_expected_upload(p_storage_path text)
+-- A funcao auxiliar nao fica exposta como RPC publica.
+create or replace function private.is_expected_upload(p_storage_path text)
 returns boolean
 language sql
 stable
@@ -270,8 +290,8 @@ as $$
   );
 $$;
 
-revoke all on function public.is_expected_upload(text) from public, anon, authenticated;
-grant execute on function public.is_expected_upload(text) to anon, authenticated;
+revoke all on function private.is_expected_upload(text) from public, anon, authenticated;
+grant execute on function private.is_expected_upload(text) to anon, authenticated;
 
 -- So conclui a resposta quando todos os anexos reservados chegaram ao bucket.
 create or replace function public.complete_submission(
@@ -340,15 +360,18 @@ create policy public_upload_field_evidence on storage.objects
   for insert to anon, authenticated
   with check (
     bucket_id = 'field-evidence'
-    and (select public.is_expected_upload(name))
+    and (select private.is_expected_upload(name))
   );
+
+-- Remove a versao antiga, que ficava exposta pela Data API.
+drop function if exists public.is_expected_upload(text);
 
 drop policy if exists admin_read_field_evidence on storage.objects;
 create policy admin_read_field_evidence on storage.objects
   for select to authenticated
   using (
     bucket_id = 'field-evidence'
-    and (select public.is_admin())
+    and (select private.is_admin())
   );
 
 drop policy if exists admin_delete_field_evidence on storage.objects;
@@ -356,7 +379,7 @@ create policy admin_delete_field_evidence on storage.objects
   for delete to authenticated
   using (
     bucket_id = 'field-evidence'
-    and (select public.is_admin())
+    and (select private.is_admin())
   );
 
 -- Depois de criar o usuario em Authentication > Users, torne-o administrador:
