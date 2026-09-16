@@ -14,6 +14,7 @@ const source = inlineScripts[0][1]
 const context = {
   console,
   crypto: globalThis.crypto,
+  supabase: { createClient: () => ({}) },
   window: { addEventListener() {}, scrollTo() {} },
   location: { hash: "#/" },
 };
@@ -32,14 +33,27 @@ assert.equal(
 for (const expected of [
   "create or replace function public.create_submission",
   "create or replace function public.complete_submission",
+  "create or replace function private.is_admin",
+  "create or replace function private.is_expected_upload",
   "create policy public_upload_field_evidence",
   "create policy admin_read_submissions",
   "revoke all on table public.submissions from anon, authenticated",
 ]) assert.ok(sql.includes(expected), `regra ausente no SQL: ${expected}`);
 
 assert.ok(!/service[_ -]?role/i.test(html), "uma chave service role nunca pode ir para o HTML");
-assert.ok(html.includes("COLE_AQUI_SUA_SUPABASE_URL"), "placeholder da URL ausente");
-assert.ok(html.includes("COLE_AQUI_SUA_SUPABASE_ANON_KEY"), "placeholder da chave pública ausente");
+assert.ok(!/sb_secret_/i.test(html), "uma chave secreta nunca pode ir para o HTML");
+
+const supabaseUrl = html.match(/const SUPABASE_URL = "([^"]+)";/)?.[1];
+const supabaseKey = html.match(/const SUPABASE_ANON_KEY = "([^"]+)";/)?.[1];
+assert.match(
+  supabaseUrl ?? "",
+  /^https:\/\/[a-z0-9-]+\.supabase\.co$/i,
+  "URL pública do Supabase ausente ou inválida",
+);
+assert.ok(
+  /^(sb_publishable_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/.test(supabaseKey ?? ""),
+  "chave pública do Supabase ausente ou inválida",
+);
 assert.ok(html.includes('sb.rpc("create_submission"'), "frontend deve criar envios pela função protegida");
 assert.ok(html.includes('sb.rpc("complete_submission"'), "frontend deve concluir envios pela função protegida");
 assert.ok(html.includes("Content-Security-Policy"), "política de conteúdo ausente");
