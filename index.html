@@ -213,7 +213,7 @@ const FORMS = [
       {section:"Local da ocorrência"},{k:"loja",l:"Nome da loja",t:"text",req:true},{k:"cnpj",l:"CNPJ",t:"text",req:true},{k:"endereco",l:"Endereço completo",t:"text",req:true,h:"Informe rua/avenida e número."},{k:"complemento",l:"Complemento",t:"text"},{k:"bairro",l:"Bairro",t:"text",req:true},{k:"cidade",l:"Cidade",t:"text",req:true},{k:"uf",l:"Estado / UF",t:"text",req:true},{k:"cep",l:"CEP",t:"text",req:true},
       {section:"Problema identificado"},{k:"problema",l:"Descreva detalhadamente o problema identificado",t:"textarea",req:true,h:"Explique o que está acontecendo, qual produto ou parte do expositor foi afetada, há quanto tempo o problema ocorre e quais testes ou tentativas de correção já foram feitos. Evite respostas genéricas."},
       {section:"Evidências obrigatórias"},{info:"Envie arquivos já salvos no celular ou computador. As quatro evidências abaixo são obrigatórias para o envio da solicitação."},
-      {k:"foto1",l:"Foto 1 — visão geral do expositor",t:"file",accept:"image/*",req:true},{k:"foto2",l:"Foto 2 — detalhe do problema",t:"file",accept:"image/*",req:true},{k:"foto3",l:"Foto 3 — evidência complementar",t:"file",accept:"image/*",req:true},{k:"video",l:"Vídeo da ocorrência",t:"file",accept:"video/*",req:true}
+      {k:"foto1",l:"Foto 1 — visão geral do expositor",t:"file",accept:"image/*",req:true},{k:"foto2",l:"Foto 2 — detalhe do problema",t:"file",accept:"image/*",req:true},{k:"foto3",l:"Foto 3 — evidência complementar",t:"file",accept:"image/*",req:true},{k:"video",l:"Vídeo da ocorrência",t:"file",accept:"video/*",req:true,h:"Para enviar mais rápido: grave em HD/720p, com até 30 segundos. Selecione o vídeo já salvo na galeria e mantenha esta tela aberta durante o envio."}
     ]
   },
   {
@@ -250,6 +250,9 @@ const FORMS = [
 ];
 
 let currentForm=null, adminSubmissions=[], adminAttachments=[], activeUploadAttempt=null, uploadWakeLock=null;
+const MAINTENANCE_DRAFT_KEY="amazonPortalMaintenanceDraftV1";
+const MAINTENANCE_ATTEMPT_KEY="amazonPortalMaintenanceUploadV1";
+const MAINTENANCE_CACHE_TTL=2*60*60*1000;
 
 const ADMIN_SETUP_ENDPOINT = SUPABASE_URL + "/functions/v1/setup-admin";
 function getSetupToken(){try{return new URLSearchParams(location.search||"").get("setup_token")||""}catch{return ""}}
@@ -286,6 +289,39 @@ function openForm(key){
   showPage("formPage");document.getElementById("formCategory").textContent=currentForm.category;document.getElementById("formTitle").textContent=currentForm.title;document.getElementById("formDescription").textContent=currentForm.description;
   renderForm();
 }
+function readMaintenanceCache(key){
+  try{const value=JSON.parse(localStorage.getItem(key)||"null");if(!value)return null;if(!value.expiresAt||value.expiresAt<Date.now()){localStorage.removeItem(key);return null}return value}catch{return null}
+}
+function writeMaintenanceCache(key,value){try{localStorage.setItem(key,JSON.stringify({...value,expiresAt:Date.now()+MAINTENANCE_CACHE_TTL}))}catch{}}
+function currentAnswers(){
+  const answers={};if(!currentForm)return answers;
+  currentForm.fields.filter(f=>f.k&&f.t!=="file").forEach(f=>{const el=document.getElementById("fld_"+f.k);answers[f.k]=el?el.value.trim():""});return answers;
+}
+function maintenanceFingerprint(answers){return "manutencao|"+JSON.stringify(answers)}
+function saveMaintenanceDraft(){if(currentForm?.key==="manutencao")writeMaintenanceCache(MAINTENANCE_DRAFT_KEY,{answers:currentAnswers()})}
+function saveMaintenanceAttempt(attempt){
+  if(currentForm?.key!=="manutencao"||!attempt)return;
+  writeMaintenanceCache(MAINTENANCE_ATTEMPT_KEY,{fingerprint:attempt.fingerprint,created:{submission_id:attempt.created.submission_id,public_token:attempt.created.public_token},uploads:Object.fromEntries(attempt.uploads),uploadedFields:[...attempt.uploadedFields]});
+}
+function loadMaintenanceAttempt(fingerprint){
+  const value=readMaintenanceCache(MAINTENANCE_ATTEMPT_KEY);if(!value||value.fingerprint!==fingerprint)return null;
+  if(!value.created?.submission_id||!value.created?.public_token)return null;
+  return {fingerprint:value.fingerprint,created:value.created,uploads:new Map(Object.entries(value.uploads||{})),uploadedFields:new Set(value.uploadedFields||[])};
+}
+function recoveredUploadFields(){
+  if(currentForm?.key!=="manutencao"||!activeUploadAttempt)return new Set();
+  return activeUploadAttempt.fingerprint===maintenanceFingerprint(currentAnswers())?activeUploadAttempt.uploadedFields:new Set();
+}
+function refreshRecoveredFilePreviews(){
+  if(currentForm?.key!=="manutencao")return;const recovered=recoveredUploadFields();
+  currentForm.fields.filter(f=>f.t==="file").forEach(f=>{const input=document.getElementById("fld_"+f.k),box=document.getElementById("prev_"+f.k);if(!input||!box||input.files.length)return;box.innerHTML=recovered.has(f.k)?'<span style="color:var(--ok);font-weight:700">✓ Arquivo já enviado — não precisa selecionar novamente</span>':""});
+}
+function restoreMaintenanceDraft(){
+  if(currentForm?.key!=="manutencao")return false;const draft=readMaintenanceCache(MAINTENANCE_DRAFT_KEY);if(!draft?.answers)return false;
+  currentForm.fields.filter(f=>f.k&&f.t!=="file").forEach(f=>{const el=document.getElementById("fld_"+f.k);if(el&&draft.answers[f.k]!=null)el.value=draft.answers[f.k]});
+  activeUploadAttempt=loadMaintenanceAttempt(maintenanceFingerprint(currentAnswers()));refreshRecoveredFilePreviews();return true;
+}
+function clearMaintenanceRecovery(){try{localStorage.removeItem(MAINTENANCE_DRAFT_KEY);localStorage.removeItem(MAINTENANCE_ATTEMPT_KEY)}catch{}}
 function renderForm(){
   const root=document.getElementById("dynamicForm"); root.innerHTML="";
   currentForm.fields.forEach((f,i)=>{
@@ -300,17 +336,18 @@ function renderForm(){
     wrap.innerHTML=`<label class="${cls}">${f.l}</label>${f.h?`<div class="help">${f.h}</div>`:""}${ctl}`;root.appendChild(wrap);
   });
   document.getElementById("submitBtn").disabled=!CONFIGURED;
-  document.getElementById("formMessage").innerHTML=CONFIGURED?"":`<div class="notice notice-info">Envio desativado enquanto o backend seguro não estiver configurado.</div>`;
-  root.addEventListener("input",updateProgress);updateProgress();
+  const restored=restoreMaintenanceDraft(),recovered=recoveredUploadFields().size;
+  document.getElementById("formMessage").innerHTML=!CONFIGURED?`<div class="notice notice-info">Envio desativado enquanto o backend seguro não estiver configurado.</div>`:restored?`<div class="notice notice-info"><b>Rascunho recuperado.</b> ${recovered?recovered+" arquivo(s) já enviado(s) foram preservados. Selecione somente o que ainda falta.":"Selecione novamente as 3 fotos e o vídeo para continuar."}</div>`:"";
+  root.oninput=event=>{if(event.target.type!=="file")saveMaintenanceDraft();refreshRecoveredFilePreviews();updateProgress()};updateProgress();
 }
 function updateProgress(){
-  if(!currentForm)return;const req=currentForm.fields.filter(f=>f.k&&f.req),done=req.filter(f=>{const el=document.getElementById("fld_"+f.k);return el && (el.type==="file"?el.files.length:el.value.trim())}).length;
+  if(!currentForm)return;const recovered=recoveredUploadFields(),req=currentForm.fields.filter(f=>f.k&&f.req),done=req.filter(f=>{const el=document.getElementById("fld_"+f.k);return el && (el.type==="file"?(el.files.length||recovered.has(f.k)):el.value.trim())}).length;
   document.getElementById("formProgress").style.width=(req.length?done/req.length*100:0)+"%";
 }
 function previewFile(k){
   const el=document.getElementById("fld_"+k),box=document.getElementById("prev_"+k);box.innerHTML="";if(!el.files[0])return;const f=el.files[0];
   if(f.type.startsWith("image/")){const img=document.createElement("img");img.src=URL.createObjectURL(f);box.appendChild(img)}
-  const txt=document.createElement("span");txt.textContent=`${f.name} • ${(f.size/1024/1024).toFixed(1)} MB`;box.appendChild(txt);updateProgress();
+  const txt=document.createElement("span");txt.textContent=`${f.name} • ${(f.size/1024/1024).toFixed(1)} MB`;box.appendChild(txt);saveMaintenanceDraft();updateProgress();
 }
 function fileLimitOK(field,file){
   const max=field.accept?.includes("video")?200:15;
@@ -342,6 +379,7 @@ async function uploadFileResumable(path,file,onProgress){
       headers:{authorization:"Bearer "+accessToken,apikey:SUPABASE_ANON_KEY},
       uploadDataDuringCreation:true,
       removeFingerprintOnSuccess:true,
+      fingerprint:input=>Promise.resolve(["amazon-portal",STORAGE_BUCKET,path,input.name,input.type,input.size,input.lastModified].join("|")),
       chunkSize:6*1024*1024,
       metadata:{bucketName:STORAGE_BUCKET,objectName:path,contentType:resolvedMime(file),cacheControl:"3600"},
       onError:error=>reject(new Error(error?.message||"A conexão foi interrompida durante o envio.")),
@@ -367,37 +405,43 @@ async function submitCurrentForm(){
   const msg=document.getElementById("formMessage");msg.innerHTML="";
   const answers={},files=[];
   for(const f of currentForm.fields){
-    if(!f.k)continue;const el=document.getElementById("fld_"+f.k);
-    if(f.t==="file"){
-      const file=el.files[0];if(f.req&&!file){msg.innerHTML=`<div class="notice notice-error">Preencha todos os campos obrigatórios.</div>`;return}
-      if(file&&!fileLimitOK(f,file)){msg.innerHTML=`<div class="notice notice-error">O arquivo “${escapeHtml(file.name)}” excede o limite permitido.</div>`;return}
-      if(file&&!fileTypeOK(f,file)){msg.innerHTML=`<div class="notice notice-error">O formato de “${escapeHtml(file.name)}” não é permitido neste campo.</div>`;return}
-      if(file)files.push({field:f,file});
-    } else {
-      const val=el.value.trim();if(f.req&&!val){msg.innerHTML=`<div class="notice notice-error">Preencha todos os campos obrigatórios.</div>`;el.focus();return}answers[f.k]=val;
-    }
+    if(!f.k||f.t==="file")continue;const el=document.getElementById("fld_"+f.k),val=el.value.trim();
+    if(f.req&&!val){msg.innerHTML=`<div class="notice notice-error">Preencha todos os campos obrigatórios.</div>`;el.focus();return}answers[f.k]=val;
   }
+  const isMaintenance=currentForm.key==="manutencao";
+  let fingerprint=currentForm.key+"|"+JSON.stringify(answers);
+  let attempt=isMaintenance&&activeUploadAttempt?.fingerprint===fingerprint?activeUploadAttempt:isMaintenance?loadMaintenanceAttempt(fingerprint):null;
+  const alreadyUploaded=attempt?.uploadedFields||new Set();
+  for(const f of currentForm.fields){
+    if(!f.k||f.t!=="file")continue;const el=document.getElementById("fld_"+f.k),file=el.files[0];
+    if(f.req&&!file&&!alreadyUploaded.has(f.k)){msg.innerHTML=`<div class="notice notice-error">Selecione os arquivos obrigatórios que ainda faltam.</div>`;el.focus();return}
+    if(file&&!fileLimitOK(f,file)){msg.innerHTML=`<div class="notice notice-error">O arquivo “${escapeHtml(file.name)}” excede o limite permitido.</div>`;return}
+    if(file&&!fileTypeOK(f,file)){msg.innerHTML=`<div class="notice notice-error">O formato de “${escapeHtml(file.name)}” não é permitido neste campo.</div>`;return}
+    if(file)files.push({field:f,file});
+  }
+  if(!isMaintenance){fingerprint+="|"+files.map(({field,file})=>[field.k,file.name,file.size,file.lastModified].join(":")).join("|");attempt=activeUploadAttempt?.fingerprint===fingerprint?activeUploadAttempt:null}
+  saveMaintenanceDraft();
   document.getElementById("submitBtn").disabled=true;msg.innerHTML=`<div class="notice notice-info">Preparando envio seguro...</div>`;
   await keepUploadScreenAwake();
   try{
     const descriptors=files.map(({field,file})=>({field_key:field.k,original_name:file.name,mime_type:resolvedMime(file),size_bytes:file.size}));
-    const fingerprint=currentForm.key+"|"+JSON.stringify(answers)+"|"+files.map(({field,file})=>[field.k,file.name,file.size,file.lastModified].join(":")).join("|");
-    if(!activeUploadAttempt||activeUploadAttempt.fingerprint!==fingerprint){
+    if(!attempt){
       const {data:created,error:createError}=await sb.rpc("create_submission",{p_form_key:currentForm.key,p_answers:answers,p_files:descriptors});if(createError)throw createError;
-      activeUploadAttempt={fingerprint,created,uploads:new Map((created.uploads||[]).map(x=>[x.field_key,x.storage_path])),uploadedFields:new Set()};
+      attempt={fingerprint,created,uploads:new Map((created.uploads||[]).map(x=>[x.field_key,x.storage_path])),uploadedFields:new Set()};activeUploadAttempt=attempt;saveMaintenanceAttempt(attempt);
+    } else {
+      activeUploadAttempt=attempt;
     }
-    const attempt=activeUploadAttempt;
     for(let i=0;i<files.length;i++){
       const item=files[i];
       if(attempt.uploadedFields.has(item.field.k))continue;
       const path=attempt.uploads.get(item.field.k);if(!path)throw new Error("O backend não reservou o arquivo "+item.field.k+".");
       await uploadFileResumable(path,item.file,percent=>{msg.innerHTML=`<div class="notice notice-info">Enviando arquivo ${i+1} de ${files.length}: <b>${percent}%</b><br><span class="small">Se a internet oscilar, o envio continua automaticamente. Mantenha esta tela aberta.</span></div>`});
-      attempt.uploadedFields.add(item.field.k);
+      attempt.uploadedFields.add(item.field.k);saveMaintenanceAttempt(attempt);refreshRecoveredFilePreviews();updateProgress();
     }
     msg.innerHTML=`<div class="notice notice-info">Finalizando registro...</div>`;
     const {error:completeError}=await sb.rpc("complete_submission",{p_submission_id:attempt.created.submission_id,p_public_token:attempt.created.public_token});if(completeError)throw completeError;
-    activeUploadAttempt=null;await releaseUploadScreenAwake();showPage("successPage");
-  }catch(err){await releaseUploadScreenAwake();console.error(err);msg.innerHTML=`<div class="notice notice-error"><b>Não foi possível concluir agora.</b> ${escapeHtml(err.message||"A conexão foi interrompida.")}<br><span class="small">Mantenha esta página aberta e toque em “Enviar formulário” novamente para continuar do ponto em que parou.</span></div>`;document.getElementById("submitBtn").disabled=false}
+    activeUploadAttempt=null;if(isMaintenance)clearMaintenanceRecovery();await releaseUploadScreenAwake();showPage("successPage");
+  }catch(err){await releaseUploadScreenAwake();console.error(err);msg.innerHTML=`<div class="notice notice-error"><b>Não foi possível concluir agora.</b> ${escapeHtml(err.message||"A conexão foi interrompida.")}<br><span class="small">Toque em “Enviar formulário” novamente. Se a página atualizar, o rascunho e os arquivos já recebidos serão recuperados; selecione apenas o que ainda faltar.</span></div>`;document.getElementById("submitBtn").disabled=false}
 }
 
 async function adminInit(){
