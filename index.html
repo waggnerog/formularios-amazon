@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
   <style>
     :root{--bg:#f0ebf8;--surface:#fff;--ink:#202124;--muted:#5f6368;--line:#dadce0;--accent:#673ab7;--accent2:#5b32a3;--dark:#fff;--ok:#137333;--danger:#b3261e;--radius:9px}
     *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
@@ -248,7 +249,7 @@ const FORMS = [
   }))
 ];
 
-let currentForm=null, adminSubmissions=[], adminAttachments=[];
+let currentForm=null, adminSubmissions=[], adminAttachments=[], activeUploadAttempt=null;
 
 const ADMIN_SETUP_ENDPOINT = SUPABASE_URL + "/functions/v1/setup-admin";
 function getSetupToken(){try{return new URLSearchParams(location.search||"").get("setup_token")||""}catch{return ""}}
@@ -328,6 +329,32 @@ function fileTypeOK(field,file){
   if(accept.includes("image"))return mime.startsWith("image/");
   return false;
 }
+const STORAGE_UPLOAD_ENDPOINT = "https://qhqurxvszgdgpwtrsjku.storage.supabase.co/storage/v1/upload/resumable";
+
+async function uploadFileResumable(path,file,onProgress){
+  if(typeof tus==="undefined")throw new Error("O carregador de arquivos não iniciou. Atualize a página e tente novamente.");
+  const {data:{session}}=await sb.auth.getSession();
+  const accessToken=session?.access_token||SUPABASE_ANON_KEY;
+  return new Promise((resolve,reject)=>{
+    const upload=new tus.Upload(file,{
+      endpoint:STORAGE_UPLOAD_ENDPOINT,
+      retryDelays:[0,1000,3000,5000,10000,20000],
+      headers:{authorization:"Bearer "+accessToken,apikey:SUPABASE_ANON_KEY},
+      uploadDataDuringCreation:true,
+      removeFingerprintOnSuccess:true,
+      chunkSize:6*1024*1024,
+      metadata:{bucketName:STORAGE_BUCKET,objectName:path,contentType:resolvedMime(file),cacheControl:"3600"},
+      onError:error=>reject(new Error(error?.message||"A conexão foi interrompida durante o envio.")),
+      onProgress:(uploaded,total)=>onProgress(total?Math.round(uploaded*100/total):0),
+      onSuccess:()=>resolve(upload.url)
+    });
+    upload.findPreviousUploads().then(previous=>{
+      if(previous.length)upload.resumeFromPreviousUpload(previous[0]);
+      upload.start();
+    }).catch(reject);
+  });
+}
+
 async function submitCurrentForm(){
   if(!CONFIGURED)return;
   const msg=document.getElementById("formMessage");msg.innerHTML="";
@@ -343,18 +370,26 @@ async function submitCurrentForm(){
       const val=el.value.trim();if(f.req&&!val){msg.innerHTML=`<div class="notice notice-error">Preencha todos os campos obrigatórios.</div>`;el.focus();return}answers[f.k]=val;
     }
   }
-  document.getElementById("submitBtn").disabled=true;msg.innerHTML=`<div class="notice notice-info">Enviando...</div>`;
+  document.getElementById("submitBtn").disabled=true;msg.innerHTML=`<div class="notice notice-info">Preparando envio seguro...</div>`;
   try{
     const descriptors=files.map(({field,file})=>({field_key:field.k,original_name:file.name,mime_type:resolvedMime(file),size_bytes:file.size}));
-    const {data:created,error:createError}=await sb.rpc("create_submission",{p_form_key:currentForm.key,p_answers:answers,p_files:descriptors});if(createError)throw createError;
-    const uploads=new Map((created.uploads||[]).map(x=>[x.field_key,x.storage_path]));
-    for(let i=0;i<files.length;i++){
-      const item=files[i],path=uploads.get(item.field.k);if(!path)throw new Error("O backend não reservou o arquivo "+item.field.k+".");msg.innerHTML=`<div class="notice notice-info">Enviando arquivo ${i+1} de ${files.length}...</div>`;
-      const {error:upErr}=await sb.storage.from(STORAGE_BUCKET).upload(path,item.file,{upsert:false,contentType:resolvedMime(item.file),cacheControl:"3600"});if(upErr)throw upErr;
+    const fingerprint=currentForm.key+"|"+JSON.stringify(answers)+"|"+files.map(({field,file})=>[field.k,file.name,file.size,file.lastModified].join(":")).join("|");
+    if(!activeUploadAttempt||activeUploadAttempt.fingerprint!==fingerprint){
+      const {data:created,error:createError}=await sb.rpc("create_submission",{p_form_key:currentForm.key,p_answers:answers,p_files:descriptors});if(createError)throw createError;
+      activeUploadAttempt={fingerprint,created,uploads:new Map((created.uploads||[]).map(x=>[x.field_key,x.storage_path])),uploadedFields:new Set()};
     }
-    const {error:completeError}=await sb.rpc("complete_submission",{p_submission_id:created.submission_id,p_public_token:created.public_token});if(completeError)throw completeError;
-    showPage("successPage");
-  }catch(err){console.error(err);msg.innerHTML=`<div class="notice notice-error"><b>Não foi possível concluir o envio.</b> ${escapeHtml(err.message||"Tente novamente.")} Se algum arquivo já tiver sido enviado, ele ficará como incompleto e poderá ser limpo pelo administrador.</div>`;document.getElementById("submitBtn").disabled=false}
+    const attempt=activeUploadAttempt;
+    for(let i=0;i<files.length;i++){
+      const item=files[i];
+      if(attempt.uploadedFields.has(item.field.k))continue;
+      const path=attempt.uploads.get(item.field.k);if(!path)throw new Error("O backend não reservou o arquivo "+item.field.k+".");
+      await uploadFileResumable(path,item.file,percent=>{msg.innerHTML=`<div class="notice notice-info">Enviando arquivo ${i+1} de ${files.length}: <b>${percent}%</b><br><span class="small">Se a internet oscilar, o envio continua automaticamente.</span></div>`});
+      attempt.uploadedFields.add(item.field.k);
+    }
+    msg.innerHTML=`<div class="notice notice-info">Finalizando registro...</div>`;
+    const {error:completeError}=await sb.rpc("complete_submission",{p_submission_id:attempt.created.submission_id,p_public_token:attempt.created.public_token});if(completeError)throw completeError;
+    activeUploadAttempt=null;showPage("successPage");
+  }catch(err){console.error(err);msg.innerHTML=`<div class="notice notice-error"><b>Não foi possível concluir agora.</b> ${escapeHtml(err.message||"A conexão foi interrompida.")}<br><span class="small">Toque em “Enviar formulário” novamente para continuar do ponto em que parou.</span></div>`;document.getElementById("submitBtn").disabled=false}
 }
 
 async function adminInit(){
