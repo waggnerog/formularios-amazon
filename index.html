@@ -96,6 +96,22 @@
       </div>
     </section>
 
+
+    <section id="setupPage" class="page">
+      <div class="admin-login">
+        <h2>Criar acesso administrativo</h2>
+        <p class="muted">Defina sua senha para concluir a ativação. O link funciona uma única vez.</p>
+        <div id="setupFields">
+          <label>E-mail</label><input id="setupEmail" type="email" value="luiswagnercosta@icloud.com" readonly autocomplete="username">
+          <label>Nova senha</label><input id="setupPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password">
+          <label>Confirmar nova senha</label><input id="setupPasswordConfirm" type="password" minlength="12" maxlength="128" autocomplete="new-password">
+          <p class="muted small">Use pelo menos 12 caracteres. Evite reutilizar uma senha de outro serviço.</p>
+          <button id="setupButton" class="btn btn-primary" style="width:100%" onclick="activateAdmin()">Criar acesso</button>
+        </div>
+        <div id="setupMessage"></div>
+      </div>
+    </section>
+
     <section id="adminPage" class="page">
       <div class="admin-shell">
         <div id="adminLogin" class="admin-login">
@@ -234,11 +250,29 @@ const FORMS = [
 
 let currentForm=null, adminSubmissions=[], adminAttachments=[];
 
+const ADMIN_SETUP_ENDPOINT = SUPABASE_URL + "/functions/v1/setup-admin";
+function getSetupToken(){try{return new URLSearchParams(location.search||"").get("setup_token")||""}catch{return ""}}
 function showPage(id){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.getElementById(id).classList.add("active");window.scrollTo({top:0,behavior:"smooth"})}
 function goHome(){location.hash="/";showPage("homePage")}
 function openAdmin(){location.hash="/admin";showPage("adminPage");adminInit()}
-function route(){const h=location.hash||"#/";if(h==="#/admin"){openAdmin();return}const m=h.match(/^#\/form\/(.+)$/);if(m){openForm(m[1]);return}goHome()}
+function route(){if(getSetupToken()){showPage("setupPage");return}const h=location.hash||"#/";if(h==="#/admin"){openAdmin();return}const m=h.match(/^#\/form\/(.+)$/);if(m){openForm(m[1]);return}goHome()}
 window.addEventListener("hashchange",route);
+
+async function activateAdmin(){
+  const password=document.getElementById("setupPassword").value,confirmPassword=document.getElementById("setupPasswordConfirm").value,button=document.getElementById("setupButton"),message=document.getElementById("setupMessage");
+  if(password.length<12){message.innerHTML='<div class="notice notice-error">A senha precisa ter pelo menos 12 caracteres.</div>';return}
+  if(password!==confirmPassword){message.innerHTML='<div class="notice notice-error">As senhas não coincidem.</div>';return}
+  button.disabled=true;message.innerHTML='<div class="notice notice-info">Criando acesso...</div>';
+  try{
+    const response=await fetch(ADMIN_SETUP_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:"luiswagnercosta@icloud.com",password,token:getSetupToken()})});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.ok!==true)throw new Error(data.error||"Não foi possível criar o acesso.");
+    history.replaceState(null,"",location.pathname+"#/admin");
+    document.getElementById("setupFields").classList.add("hidden");
+    message.innerHTML='<div class="notice notice-ok"><b>Acesso criado.</b> Sua senha foi definida com segurança.</div><button class="btn btn-primary" style="width:100%" onclick="openAdminAfterSetup()">Entrar na área administrativa</button>';
+  }catch(error){message.innerHTML='<div class="notice notice-error">'+escapeHtml(error.message||"Não foi possível criar o acesso.")+'</div>';button.disabled=false}
+}
+function openAdminAfterSetup(){document.getElementById("adminEmail").value="luiswagnercosta@icloud.com";openAdmin()}
 
 function home(){
   const groups={};
