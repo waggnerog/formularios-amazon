@@ -249,7 +249,7 @@ const FORMS = [
   }))
 ];
 
-let currentForm=null, adminSubmissions=[], adminAttachments=[], activeUploadAttempt=null;
+let currentForm=null, adminSubmissions=[], adminAttachments=[], activeUploadAttempt=null, uploadWakeLock=null;
 
 const ADMIN_SETUP_ENDPOINT = SUPABASE_URL + "/functions/v1/setup-admin";
 function getSetupToken(){try{return new URLSearchParams(location.search||"").get("setup_token")||""}catch{return ""}}
@@ -338,7 +338,7 @@ async function uploadFileResumable(path,file,onProgress){
   return new Promise((resolve,reject)=>{
     const upload=new tus.Upload(file,{
       endpoint:STORAGE_UPLOAD_ENDPOINT,
-      retryDelays:[0,1000,3000,5000,10000,20000],
+      retryDelays:[0,1000,3000,5000,10000,20000,30000,60000,60000,120000],
       headers:{authorization:"Bearer "+accessToken,apikey:SUPABASE_ANON_KEY},
       uploadDataDuringCreation:true,
       removeFingerprintOnSuccess:true,
@@ -353,6 +353,13 @@ async function uploadFileResumable(path,file,onProgress){
       upload.start();
     }).catch(reject);
   });
+}
+
+async function keepUploadScreenAwake(){
+  try{if("wakeLock" in navigator)uploadWakeLock=await navigator.wakeLock.request("screen")}catch{}
+}
+async function releaseUploadScreenAwake(){
+  try{if(uploadWakeLock)await uploadWakeLock.release()}catch{}finally{uploadWakeLock=null}
 }
 
 async function submitCurrentForm(){
@@ -371,6 +378,7 @@ async function submitCurrentForm(){
     }
   }
   document.getElementById("submitBtn").disabled=true;msg.innerHTML=`<div class="notice notice-info">Preparando envio seguro...</div>`;
+  await keepUploadScreenAwake();
   try{
     const descriptors=files.map(({field,file})=>({field_key:field.k,original_name:file.name,mime_type:resolvedMime(file),size_bytes:file.size}));
     const fingerprint=currentForm.key+"|"+JSON.stringify(answers)+"|"+files.map(({field,file})=>[field.k,file.name,file.size,file.lastModified].join(":")).join("|");
@@ -383,13 +391,13 @@ async function submitCurrentForm(){
       const item=files[i];
       if(attempt.uploadedFields.has(item.field.k))continue;
       const path=attempt.uploads.get(item.field.k);if(!path)throw new Error("O backend não reservou o arquivo "+item.field.k+".");
-      await uploadFileResumable(path,item.file,percent=>{msg.innerHTML=`<div class="notice notice-info">Enviando arquivo ${i+1} de ${files.length}: <b>${percent}%</b><br><span class="small">Se a internet oscilar, o envio continua automaticamente.</span></div>`});
+      await uploadFileResumable(path,item.file,percent=>{msg.innerHTML=`<div class="notice notice-info">Enviando arquivo ${i+1} de ${files.length}: <b>${percent}%</b><br><span class="small">Se a internet oscilar, o envio continua automaticamente. Mantenha esta tela aberta.</span></div>`});
       attempt.uploadedFields.add(item.field.k);
     }
     msg.innerHTML=`<div class="notice notice-info">Finalizando registro...</div>`;
     const {error:completeError}=await sb.rpc("complete_submission",{p_submission_id:attempt.created.submission_id,p_public_token:attempt.created.public_token});if(completeError)throw completeError;
-    activeUploadAttempt=null;showPage("successPage");
-  }catch(err){console.error(err);msg.innerHTML=`<div class="notice notice-error"><b>Não foi possível concluir agora.</b> ${escapeHtml(err.message||"A conexão foi interrompida.")}<br><span class="small">Toque em “Enviar formulário” novamente para continuar do ponto em que parou.</span></div>`;document.getElementById("submitBtn").disabled=false}
+    activeUploadAttempt=null;await releaseUploadScreenAwake();showPage("successPage");
+  }catch(err){await releaseUploadScreenAwake();console.error(err);msg.innerHTML=`<div class="notice notice-error"><b>Não foi possível concluir agora.</b> ${escapeHtml(err.message||"A conexão foi interrompida.")}<br><span class="small">Mantenha esta página aberta e toque em “Enviar formulário” novamente para continuar do ponto em que parou.</span></div>`;document.getElementById("submitBtn").disabled=false}
 }
 
 async function adminInit(){
