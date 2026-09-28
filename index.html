@@ -40,6 +40,7 @@
     .success{text-align:center;padding:50px 20px}.success .check{width:64px;height:64px;border-radius:50%;background:#d1fae5;color:#047857;display:grid;place-items:center;margin:0 auto 16px;font-size:30px}
     .admin-shell{max-width:1120px;margin:auto}.admin-login{max-width:440px;margin:40px auto;background:#fff;padding:24px;border-radius:18px;border:1px solid var(--line)}.admin-login h2{margin-top:0}.admin-login input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin:6px 0 12px}
     .admin-toolbar{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.admin-toolbar select,.admin-toolbar input{padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}.stat b{font-size:26px;display:block}.stat span{color:var(--muted);font-size:13px}
+    .admin-updates{background:#fff8e7;border:1px solid #f4c56a;border-left:6px solid #f59e0b;border-radius:14px;padding:15px 17px;margin:14px 0}.admin-updates h3{margin:0 0 6px;font-size:17px}.admin-updates p{margin:0;color:#654b13}.admin-updates-groups{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0}.update-chip{background:#fff;border:1px solid #edc56f;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:700}.admin-updates-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.new-badge{display:inline-block;background:#b45309;color:#fff;border-radius:999px;padding:3px 7px;margin-top:5px;font-size:10px;font-weight:900;letter-spacing:.04em}.new-row td{background:#fffbeb}.new-row td:first-child{box-shadow:inset 4px 0 #f59e0b}.filter-active{background:#4c1d95!important;color:#fff!important;border-color:#4c1d95!important}
     .table-wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px}table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;padding:12px 13px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top}th{background:#f9fafb;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#4b5563}.row-actions{display:flex;gap:6px;flex-wrap:wrap}.mini{padding:7px 9px;border-radius:8px;border:1px solid #d1d5db;background:white;font-weight:700}
     dialog{border:0;border-radius:18px;max-width:720px;width:min(92vw,720px);padding:0;box-shadow:0 25px 80px rgba(0,0,0,.3)}dialog::backdrop{background:rgba(0,0,0,.45)}.dialog-head{padding:18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}.dialog-body{padding:18px;max-height:70vh;overflow:auto}.kv{display:grid;grid-template-columns:220px 1fr;gap:8px 16px;padding:8px 0;border-bottom:1px solid #f1f5f9}.kv b{font-size:13px}.kv div{white-space:pre-wrap;font-size:14px}
     .hidden{display:none!important}.muted{color:var(--muted)}.small{font-size:12px}.footer{text-align:center;color:#6b7280;font-size:12px;margin-top:40px}
@@ -130,6 +131,7 @@
             <button class="btn btn-danger" onclick="adminSignOut()">Sair</button>
           </div>
           <div id="adminConfigNotice"></div>
+          <div id="adminUpdates"></div>
           <div class="stats">
             <div class="stat"><b id="statTotal">0</b><span>respostas</span></div>
             <div class="stat"><b id="statMaintenance">0</b><span>chamados</span></div>
@@ -137,10 +139,11 @@
             <div class="stat"><b id="statFiles">0</b><span>anexos</span></div>
           </div>
           <div class="admin-toolbar">
-            <select id="filterForm" onchange="renderAdminTable()"><option value="">Todos os formulários</option></select>
-            <input id="filterText" placeholder="Consultor, loja ou conteúdo" oninput="renderAdminTable()">
-            <input id="filterStart" type="date" onchange="renderAdminTable()">
-            <input id="filterEnd" type="date" onchange="renderAdminTable()">
+            <select id="filterForm" onchange="handleAdminFilterChange()"><option value="">Todos os formulários</option></select>
+            <input id="filterText" placeholder="Consultor, loja ou conteúdo" oninput="handleAdminFilterChange()">
+            <input id="filterStart" type="date" onchange="handleAdminFilterChange()">
+            <input id="filterEnd" type="date" onchange="handleAdminFilterChange()">
+            <button class="btn btn-soft" onclick="refreshAdminData()">↻ Atualizar</button>
             <button class="btn btn-soft" onclick="exportFilteredExcel()">Exportar Excel</button>
             <button class="btn btn-soft" onclick="exportAllExcel()">Exportar tudo</button>
             <button class="btn btn-soft" onclick="exportMaintenanceBatch()">Chamados em lote</button>
@@ -250,16 +253,36 @@ const FORMS = [
 ];
 
 let currentForm=null, adminSubmissions=[], adminAttachments=[], activeUploadAttempt=null, uploadWakeLock=null;
+let adminUnseenIds=new Set(),adminOnlyNew=false,pendingAdminSubmissionId=null,adminTrackingJustActivated=false,initialRouteResolved=false;
 const MAINTENANCE_DRAFT_KEY="amazonPortalMaintenanceDraftV1";
 const MAINTENANCE_ATTEMPT_KEY="amazonPortalMaintenanceUploadV1";
 const MAINTENANCE_CACHE_TTL=2*60*60*1000;
+const ADMIN_SEEN_KEY="amazonPortalAdminSeenSubmissionsV1";
+const ADMIN_UI_STATE_KEY="amazonPortalAdminUiStateV1";
+const ADMIN_ROUTE_KEY="amazonPortalAdminRouteV1";
 
 const ADMIN_SETUP_ENDPOINT = SUPABASE_URL + "/functions/v1/setup-admin";
 function getSetupToken(){try{return new URLSearchParams(location.search||"").get("setup_token")||""}catch{return ""}}
 function showPage(id){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.getElementById(id).classList.add("active");window.scrollTo({top:0,behavior:"smooth"})}
-function goHome(){location.hash="/";showPage("homePage")}
-function openAdmin(){location.hash="/admin";showPage("adminPage");adminInit()}
-function route(){if(getSetupToken()){showPage("setupPage");return}const h=location.hash||"#/";if(h==="#/admin"){openAdmin();return}const m=h.match(/^#\/form\/(.+)$/);if(m){openForm(m[1]);return}goHome()}
+function rememberAdminRoute(hash){try{sessionStorage.setItem(ADMIN_ROUTE_KEY,hash)}catch{}}
+function goHome(){try{sessionStorage.removeItem(ADMIN_ROUTE_KEY)}catch{}location.hash="/";showPage("homePage")}
+function openAdmin(detailId=null){
+  const target=detailId?"#/admin/submission/"+encodeURIComponent(detailId):"#/admin";
+  if(location.hash!==target){location.hash=target.slice(1);return}
+  pendingAdminSubmissionId=detailId;rememberAdminRoute(target);showPage("adminPage");adminInit();
+}
+function route(){
+  if(getSetupToken()){showPage("setupPage");return}
+  let h=location.hash;
+  if(!initialRouteResolved){
+    initialRouteResolved=true;
+    try{const navigation=performance.getEntriesByType?.("navigation")?.[0];const saved=sessionStorage.getItem(ADMIN_ROUTE_KEY);if(!h&&navigation?.type==="reload"&&saved?.startsWith("#/admin")){history.replaceState(null,"",location.pathname+location.search+saved);h=saved}}catch{}
+  }
+  h=h||"#/";
+  const adminDetail=h.match(/^#\/admin\/submission\/([^/?#]+)$/);if(adminDetail){openAdmin(decodeURIComponent(adminDetail[1]));return}
+  if(h==="#/admin"){openAdmin();return}
+  const m=h.match(/^#\/form\/(.+)$/);if(m){openForm(m[1]);return}goHome();
+}
 window.addEventListener("hashchange",route);
 
 async function activateAdmin(){
@@ -463,26 +486,66 @@ async function fetchAllRows(table,completeOnly=false){
   while(true){let query=sb.from(table).select("*").order("created_at",{ascending:false}).range(from,from+999);if(completeOnly)query=query.eq("status","complete");const {data,error}=await query;if(error)throw error;all.push(...(data||[]));if(!data||data.length<1000)break;from+=1000}
   return all;
 }
+function readAdminSeenIds(){try{const value=JSON.parse(localStorage.getItem(ADMIN_SEEN_KEY)||"null");return Array.isArray(value)?new Set(value):null}catch{return null}}
+function writeAdminSeenIds(ids){try{localStorage.setItem(ADMIN_SEEN_KEY,JSON.stringify([...ids].slice(0,5000)))}catch{}}
+function updateAdminUnseenState(){
+  const seen=readAdminSeenIds(),current=adminSubmissions.map(x=>x.id);
+  adminTrackingJustActivated=seen===null;
+  if(!seen){writeAdminSeenIds(new Set(current));adminUnseenIds=new Set();adminOnlyNew=false;return}
+  adminUnseenIds=new Set(current.filter(id=>!seen.has(id)));
+  if(!adminUnseenIds.size)adminOnlyNew=false;
+}
+function readAdminUiState(){try{return JSON.parse(sessionStorage.getItem(ADMIN_UI_STATE_KEY)||"null")||{}}catch{return {}}}
+function saveAdminUiState(){
+  try{sessionStorage.setItem(ADMIN_UI_STATE_KEY,JSON.stringify({form:document.getElementById("filterForm").value,text:document.getElementById("filterText").value,start:document.getElementById("filterStart").value,end:document.getElementById("filterEnd").value,onlyNew:adminOnlyNew}))}catch{}
+}
+function restoreAdminUiState(){
+  const state=readAdminUiState(),form=document.getElementById("filterForm");
+  if([...form.options].some(x=>x.value===state.form))form.value=state.form||"";
+  document.getElementById("filterText").value=state.text||"";document.getElementById("filterStart").value=state.start||"";document.getElementById("filterEnd").value=state.end||"";adminOnlyNew=Boolean(state.onlyNew);
+}
+function handleAdminFilterChange(){saveAdminUiState();renderAdminTable()}
+function toggleAdminOnlyNew(){adminOnlyNew=!adminOnlyNew;saveAdminUiState();renderAdminUpdates();renderAdminTable()}
+function markAdminUpdatesSeen(){
+  const seen=readAdminSeenIds()||new Set(),ordered=[...adminSubmissions.map(x=>x.id),...seen];writeAdminSeenIds(new Set(ordered));adminUnseenIds.clear();adminOnlyNew=false;saveAdminUiState();renderAdminUpdates();renderAdminTable();setAdminStatus("Novas respostas marcadas como vistas.","ok");
+}
+function renderAdminUpdates(){
+  const root=document.getElementById("adminUpdates");if(!root)return;
+  if(adminTrackingJustActivated){root.innerHTML='<div class="notice notice-info"><b>Acompanhamento de novidades ativado.</b> A partir de agora, as próximas respostas serão destacadas aqui até você marcá-las como vistas.</div>';adminTrackingJustActivated=false;return}
+  const fresh=adminSubmissions.filter(x=>adminUnseenIds.has(x.id));
+  if(!fresh.length){root.innerHTML='<div class="notice notice-ok"><b>Nenhuma atualização nova.</b> Você está em dia com as respostas recebidas.</div>';return}
+  const grouped={};fresh.forEach(x=>grouped[x.form_title||x.form_key]=(grouped[x.form_title||x.form_key]||0)+1);
+  root.innerHTML=`<div class="admin-updates"><h3>${fresh.length} nova${fresh.length===1?"":"s"} resposta${fresh.length===1?"":"s"} desde sua última conferência</h3><p>As linhas novas estão destacadas na tabela e continuam marcadas mesmo se você atualizar a página.</p><div class="admin-updates-groups">${Object.entries(grouped).map(([name,count])=>`<span class="update-chip">${escapeHtml(name)}: ${count}</span>`).join("")}</div><div class="admin-updates-actions"><button class="btn btn-soft ${adminOnlyNew?"filter-active":""}" onclick="toggleAdminOnlyNew()">${adminOnlyNew?"Mostrar todas":"Mostrar somente novas"}</button><button class="btn btn-primary" onclick="markAdminUpdatesSeen()">Marcar como vistas</button></div></div>`;
+}
 async function loadAdminData(){
   setAdminStatus("Carregando respostas...","info");
-  try{const [s,a]=await Promise.all([fetchAllRows("submissions",true),fetchAllRows("attachments")]);const completeIds=new Set(s.map(x=>x.id));adminSubmissions=s;adminAttachments=a.filter(x=>completeIds.has(x.submission_id))}catch(error){setAdminStatus("Não foi possível carregar os dados: "+error.message,"error");return}
+  try{const [s,a]=await Promise.all([fetchAllRows("submissions",true),fetchAllRows("attachments")]);const completeIds=new Set(s.map(x=>x.id));adminSubmissions=s;adminAttachments=a.filter(x=>completeIds.has(x.submission_id))}catch(error){setAdminStatus("Não foi possível carregar os dados: "+error.message,"error");return false}
   const sel=document.getElementById("filterForm");sel.innerHTML='<option value="">Todos os formulários</option>'+FORMS.map(f=>`<option value="${f.key}">${f.title}</option>`).join("");
-  document.getElementById("statTotal").textContent=adminSubmissions.length;document.getElementById("statMaintenance").textContent=adminSubmissions.filter(x=>x.form_key==="manutencao").length;document.getElementById("statForms").textContent=new Set(adminSubmissions.map(x=>x.form_key)).size;document.getElementById("statFiles").textContent=adminAttachments.length;renderAdminTable();setAdminStatus("","");
+  restoreAdminUiState();updateAdminUnseenState();saveAdminUiState();
+  document.getElementById("statTotal").textContent=adminSubmissions.length;document.getElementById("statMaintenance").textContent=adminSubmissions.filter(x=>x.form_key==="manutencao").length;document.getElementById("statForms").textContent=new Set(adminSubmissions.map(x=>x.form_key)).size;document.getElementById("statFiles").textContent=adminAttachments.length;renderAdminUpdates();renderAdminTable();setAdminStatus("","");
+  if(pendingAdminSubmissionId){const id=pendingAdminSubmissionId;pendingAdminSubmissionId=null;if(adminSubmissions.some(x=>x.id===id))viewSubmission(id);else{history.replaceState(null,"",location.pathname+location.search+"#/admin");rememberAdminRoute("#/admin");setAdminStatus("A resposta aberta anteriormente não foi localizada.","error")}}
+  return true;
 }
+async function refreshAdminData(){if(await loadAdminData())setAdminStatus("Dados atualizados. As novas respostas foram conferidas.","ok")}
 function setAdminStatus(message,type){document.getElementById("adminStatus").innerHTML=message?`<div class="notice notice-${type}">${escapeHtml(message)}</div>`:""}
 function getFiltered(){
   const form=document.getElementById("filterForm").value,q=document.getElementById("filterText").value.toLowerCase().trim(),s=document.getElementById("filterStart").value,e=document.getElementById("filterEnd").value;
-  return adminSubmissions.filter(x=>{if(form&&x.form_key!==form)return false;const d=x.created_at.slice(0,10);if(s&&d<s)return false;if(e&&d>e)return false;if(q&&!JSON.stringify(x.answers).toLowerCase().includes(q)&&!x.form_title.toLowerCase().includes(q))return false;return true});
+  return adminSubmissions.filter(x=>{if(adminOnlyNew&&!adminUnseenIds.has(x.id))return false;if(form&&x.form_key!==form)return false;const d=x.created_at.slice(0,10);if(s&&d<s)return false;if(e&&d>e)return false;if(q&&!JSON.stringify(x.answers).toLowerCase().includes(q)&&!x.form_title.toLowerCase().includes(q))return false;return true});
 }
 function renderAdminTable(){
-  const rows=getFiltered();document.getElementById("adminRows").innerHTML=rows.map(x=>{const a=x.answers||{};const who=a.consultor||a.nome||"";const where=a.loja||a.rede||"";return `<tr><td>${formatDate(x.submitted_at||x.created_at)}</td><td>${escapeHtml(x.form_title)}</td><td>${escapeHtml(who)}</td><td>${escapeHtml(where)}</td><td><div class="row-actions"><button class="mini" onclick="viewSubmission('${x.id}')">Ver</button>${x.form_key==="manutencao"?`<button class="mini" onclick="downloadMaintenance('${x.id}')">Gerar chamado padrão</button>`:""}<button class="mini" style="color:#b3261e" onclick="deleteSubmission('${x.id}')">Excluir</button></div></td></tr>`}).join("")||`<tr><td colspan="5" class="muted">Nenhuma resposta encontrada.</td></tr>`;
+  const rows=getFiltered();document.getElementById("adminRows").innerHTML=rows.map(x=>{const a=x.answers||{};const who=a.consultor||a.nome||"";const where=a.loja||a.rede||"",isNew=adminUnseenIds.has(x.id);return `<tr class="${isNew?"new-row":""}"><td>${formatDate(x.submitted_at||x.created_at)}${isNew?'<br><span class="new-badge">NOVO</span>':""}</td><td>${escapeHtml(x.form_title)}</td><td>${escapeHtml(who)}</td><td>${escapeHtml(where)}</td><td><div class="row-actions"><button class="mini" onclick="viewSubmission('${x.id}')">Ver</button>${x.form_key==="manutencao"?`<button class="mini" onclick="downloadMaintenance('${x.id}')">Gerar chamado padrão</button>`:""}<button class="mini" style="color:#b3261e" onclick="deleteSubmission('${x.id}')">Excluir</button></div></td></tr>`}).join("")||`<tr><td colspan="5" class="muted">${adminOnlyNew?"Nenhuma resposta nova encontrada.":"Nenhuma resposta encontrada."}</td></tr>`;
 }
 function viewSubmission(id){
-  const s=adminSubmissions.find(x=>x.id===id),f=FORMS.find(x=>x.key===s.form_key),att=adminAttachments.filter(a=>a.submission_id===id);let html="";
+  const s=adminSubmissions.find(x=>x.id===id);if(!s)return;const f=FORMS.find(x=>x.key===s.form_key),att=adminAttachments.filter(a=>a.submission_id===id);let html="";
+  const detailRoute="#/admin/submission/"+encodeURIComponent(id);history.replaceState(null,"",location.pathname+location.search+detailRoute);rememberAdminRoute(detailRoute);
   (f?.fields||[]).filter(x=>x.k&&x.t!=="file").forEach(x=>html+=`<div class="kv"><b>${escapeHtml(x.l)}</b><div>${escapeHtml((s.answers||{})[x.k]||"—")}</div></div>`);
   if(att.length)html+=`<h3>Anexos</h3>`+att.map(a=>`<div class="kv"><b>${escapeHtml(labelFor(f,a.field_key))}</b><div><button class="mini" onclick="downloadAttachment('${a.id}')">${escapeHtml(a.original_name)}</button></div></div>`).join("");
-  document.getElementById("detailBody").innerHTML=html;detailDialog.showModal();
+  document.getElementById("detailBody").innerHTML=html;if(!detailDialog.open)detailDialog.showModal();
 }
+function restoreAdminListRoute(){
+  if(/^#\/admin\/submission\//.test(location.hash)){const target="#/admin";history.replaceState(null,"",location.pathname+location.search+target);rememberAdminRoute(target)}
+}
+window.addEventListener("load",()=>document.getElementById("detailDialog")?.addEventListener("close",restoreAdminListRoute));
 async function downloadAttachment(id){
   const a=adminAttachments.find(x=>x.id===id);const {data,error}=await sb.storage.from(STORAGE_BUCKET).createSignedUrl(a.storage_path,600,{download:a.original_name});if(error){alert(error.message);return}window.open(data.signedUrl,"_blank");
 }
