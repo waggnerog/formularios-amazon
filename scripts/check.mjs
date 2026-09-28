@@ -18,6 +18,12 @@ const context = {
   window: { addEventListener() {}, scrollTo() {} },
   location: { hash: "#/" },
 };
+const localValues = new Map();
+context.localStorage = {
+  getItem: (key) => localValues.get(key) ?? null,
+  setItem: (key, value) => localValues.set(key, String(value)),
+  removeItem: (key) => localValues.delete(key),
+};
 vm.createContext(context);
 new vm.Script(source, { filename: "index-inline.js" }).runInContext(context);
 
@@ -29,6 +35,11 @@ assert.equal(
   JSON.stringify(["foto1", "foto2", "foto3", "video"]),
   "manutenção deve exigir 3 fotos e 1 vídeo",
 );
+
+vm.runInContext('adminSubmissions=[{id:"antiga"}];updateAdminUnseenState();globalThis.__FIRST_UNSEEN__=[...adminUnseenIds];', context);
+assert.equal(JSON.stringify(context.__FIRST_UNSEEN__), "[]", "primeiro acesso deve criar a referência sem marcar o histórico como novo");
+vm.runInContext('adminSubmissions=[{id:"nova"},{id:"antiga"}];updateAdminUnseenState();globalThis.__NEXT_UNSEEN__=[...adminUnseenIds];', context);
+assert.equal(JSON.stringify(context.__NEXT_UNSEEN__), '["nova"]', "uma nova resposta deve permanecer destacada até ser marcada como vista");
 
 for (const expected of [
   "create or replace function public.create_submission",
@@ -59,6 +70,10 @@ assert.ok(html.includes('sb.rpc("complete_submission"'), "frontend deve concluir
 assert.ok(html.includes("MAINTENANCE_DRAFT_KEY"), "manutenção deve preservar o rascunho no dispositivo");
 assert.ok(html.includes("loadMaintenanceAttempt"), "manutenção deve recuperar arquivos já enviados");
 assert.ok(html.includes("HD/720p, com até 30 segundos"), "formulário deve orientar um vídeo mais leve");
+assert.ok(html.includes("ADMIN_SEEN_KEY"), "admin deve registrar respostas já vistas");
+assert.ok(html.includes("adminUnseenIds"), "admin deve destacar respostas novas");
+assert.ok(html.includes("#/admin/submission/"), "admin deve preservar a resposta aberta no F5");
+assert.ok(html.includes("ADMIN_UI_STATE_KEY"), "admin deve preservar os filtros no F5");
 assert.ok(html.includes("Content-Security-Policy"), "política de conteúdo ausente");
 assert.ok(html.includes("@supabase/supabase-js@2.116.0"), "cliente Supabase deve usar versão fixa");
 
