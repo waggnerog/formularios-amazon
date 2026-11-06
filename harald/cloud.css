@@ -1,0 +1,27 @@
+
+body.auth-locked .app,
+body.auth-locked .drawer,
+body.auth-locked .drawerBackdrop,
+body.auth-locked #toast{display:none!important}
+#authGate{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:radial-gradient(circle at 12% 5%,#e9eaff 0%,transparent 38%),radial-gradient(circle at 92% 88%,#d9eef7 0%,transparent 35%),#f7f9fd;padding:20px;overflow:auto}
+.authPanel{width:min(100%,435px);background:#fff;border:1px solid #e4e9f2;border-radius:25px;box-shadow:0 25px 95px rgba(48,62,108,.13);padding:35px;color:#253452}
+.authBrand{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.authLogo{width:46px;height:46px;display:grid;place-items:center;background:linear-gradient(135deg,#655ed0,#526cc1);color:white;border-radius:16px;font-weight:900;font-size:24px;box-shadow:0 8px 18px #746de633}
+.authBrand b{display:block;letter-spacing:2.5px;font-size:16px}.authBrand small{color:#74819c;font-size:10px;letter-spacing:1px}
+.authPanel h1{font-size:27px;line-height:1.15;letter-spacing:-.8px;margin:0 0 12px;color:#263252}
+.authDescription{font-size:14px;color:#67738e;line-height:1.6;margin:0 0 20px}
+.authPanel form{display:grid;gap:8px}.authPanel label{font-size:12px;font-weight:800;letter-spacing:.3px;margin-top:9px;color:#424b70}
+.authPanel input{display:block;width:100%;box-sizing:border-box;border:1px solid #d6ddea;background:#fbfcff;color:#263252;font:inherit;font-size:15px;border-radius:11px;padding:13px 14px;outline-color:#6467c7}
+.authPrimary{width:100%;border:0;background:linear-gradient(110deg,#6766c6,#4f7bbd);color:white;border-radius:12px;padding:14px 18px;margin-top:19px;font-size:14px;font-weight:750;cursor:pointer}
+.authPrimary:disabled{opacity:.65;cursor:wait}.authLink{display:block;margin:15px auto 0;background:transparent;border:0;color:#5d68b8;text-decoration:underline;cursor:pointer;font-weight:700;font-size:13px}
+.authMessage{background:#f0f3ff;border:1px solid #dce2ff;color:#4a568b;padding:12px;border-radius:11px;font-size:13px;line-height:1.5;margin:15px 0}
+.authFoot{display:block;margin-top:22px;color:#8590a5;font-size:11px;text-align:center;line-height:1.5}
+.cloudUser{display:flex;align-items:center;gap:8px;padding:0 6px;color:#54718a;font-size:11px;font-weight:750;white-space:nowrap}
+#cloudStatus{padding:8px 9px;border-radius:9px;background:#edf8f4;color:#187b65}
+#cloudStatus.cloudBad{background:#fff0ef;color:#a73e35}
+#haraldLogout{background:white;border:1px solid #dde4f0;border-radius:8px;color:#54627d;padding:7px 9px;font-size:12px;cursor:pointer}
+.legacyNotice{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px;margin-bottom:15px;background:#f1f0ff;border:1px solid #deddf9;border-radius:12px;color:#465476;font-size:13px}
+.legacyNotice button{padding:9px 12px;border-radius:9px;border:1px solid #c6c7e6;background:white;color:#514fa2;cursor:pointer;font-weight:750}
+.legacyNotice button#haraldImportLocal{background:#585bb1;color:#fff}
+body.haraldViewer [data-save-note],body.haraldViewer #saveContact,body.haraldViewer #importBackup{opacity:.4;pointer-events:none}
+@media(max-width:720px){.authPanel{padding:25px 20px}.authPanel h1{font-size:23px}.cloudUser{gap:5px;font-size:10px}#cloudStatus{padding:6px 7px}.legacyNotice{display:block}.legacyNotice button{margin-top:10px}}
