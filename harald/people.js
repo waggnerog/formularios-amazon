@@ -43,7 +43,7 @@ function bread(){
  return `<div class="hpCrumb">HARALD / <b>${entry}</b></div>`;
 }
 function controls(){
- if(["sector","person"].includes(state.screen))return `<button class="hpSoft" data-hpa="back">← Voltar à visão geral</button>`;
+ if(["sector","person","store"].includes(state.screen))return `<button class="hpSoft" data-hpa="back">← Voltar à visão geral</button>`;
  return `<div class="hpControls"><div class="hpSearchBox"><span>⌕</span><input id="hpSearch" placeholder="Buscar setor, cidade, promotor ou matrícula" value="${E(state.search)}" aria-label="Pesquisar registros" /></div><select id="hpScenario" aria-label="Etapa da operação"><option value="C1" ${state.scenario==="C1"?"selected":""}>Etapa 1</option><option value="C2" ${state.scenario==="C2"?"selected":""}>Operação completa</option></select><div class="hpSegment" role="group" aria-label="Tipo de vínculo">${[["ALL","Todos"],["CLT","CLT"],["HORISTA","Horistas"]].map(([id,label])=>`<button class="${state.filter===id?"sel":""}" data-hpa="filter" data-id="${id}">${label}</button>`).join("")}</div></div>`;
 }
 function dash(){
@@ -146,6 +146,10 @@ function personEditForm(p,pr){
  ${privateMode?`
  <label>CPF (11 números) ${pr?"· identidade preservada":"· obrigatório no primeiro cadastro"}</label><input name="cpf" inputmode="numeric" maxlength="11" pattern="[0-9]{11}" ${pr?"readonly":"required"} value="${E(pr?.cpf||"")}"/>
  <label>RG</label><input name="rg" value="${E(pr?.rg||"")}"/>
+ <label>Telefone particular</label><input name="personal_phone" value="${E(pr?.personal_phone||"")}"/>
+ <label>Salário (R$)</label><input name="salary" inputmode="decimal" type="number" min="0" step="0.01" value="${E(pr?.salary||"")}"/>
+ <label>VR (R$)</label><input name="meal_allowance" inputmode="decimal" type="number" min="0" step="0.01" value="${E(pr?.meal_allowance||"")}"/>
+ <label>VA (R$)</label><input name="food_allowance" inputmode="decimal" type="number" min="0" step="0.01" value="${E(pr?.food_allowance||"")}"/>
  <label>Data de nascimento</label><input type="date" name="birth_date" value="${E(pr?.birth_date||"")}"/>
  <label>E-mail particular</label><input type="email" name="personal_email" value="${E(pr?.personal_email||"")}"/>
  <label>Endereço</label><input name="street" value="${E(pr?.street||"")}"/>
@@ -166,6 +170,11 @@ function personEditForm(p,pr){
  <label>WhatsApp</label><input name="whatsapp" value="${E(p.whatsapp||"")}"/>
  <label>Modal</label><select name="transport_mode"><option value="">Não informado</option>${["VT","KM"].map(x=>`<option ${p.transport_mode===x?"selected":""}>${x}</option>`).join("")}</select>
  <label>Tipo de veículo</label><input name="vehicle_type" value="${E(p.vehicle_type||"")}"/>
+ <label>Data de admissão</label><input type="date" name="admission_date" value="${E(p.admission_date||"")}"/>
+ <label>Jornada semanal</label><input name="weekly_schedule" value="${E(p.weekly_schedule||"")}"/>
+ <label>Coordenador(a)</label><input name="coordinator_name" value="${E(p.coordinator_name||"")}"/>
+ <label>Gestão Geniale</label><input name="geniale_manager" value="${E(p.geniale_manager||"")}"/>
+ <label>Tipo de contratação</label><select name="hiring_type">${["CLT","HORISTA"].map(x=>`<option ${p.hiring_type===x?"selected":""}>${x}</option>`).join("")}</select>
  <label>MOB2</label><select name="mob2"><option value="">Não informado</option>${["SIM","NÃO"].map(x=>`<option ${p.mob2===x?"selected":""}>${x}</option>`).join("")}</select>
  `}<div class="hpDialogActions"><button class="hpSoft" data-hpa="cancelEdit" type="button">Cancelar</button><button class="hpPrimary" type="submit">Salvar alterações</button></div></form></div>`;
 }
@@ -266,15 +275,15 @@ async function submit(e){
   }
   if(name==="editPerson"){
    const p=pby(state.person);const before={status:p.status,profile:p.profile};
-   const payload={status:d.status,profile:d.profile?.trim()||null,registration_number:d.registration_number?.trim()||null,whatsapp:d.whatsapp?.trim()||null,transport_mode:d.transport_mode||null,vehicle_type:d.vehicle_type?.trim()||null,mob2:d.mob2||null};
+   const payload={status:d.status,profile:d.profile?.trim()||null,registration_number:d.registration_number?.trim()||null,whatsapp:d.whatsapp?.trim()||null,transport_mode:d.transport_mode||null,vehicle_type:d.vehicle_type?.trim()||null,mob2:d.mob2||null,admission_date:d.admission_date||null,weekly_schedule:d.weekly_schedule?.trim()||null,coordinator_name:d.coordinator_name?.trim()||null,geniale_manager:d.geniale_manager?.trim()||null,hiring_type:d.hiring_type||null};
    await api("harald_promoters?id=eq."+encodeURIComponent(p.id),{method:"PATCH",body:payload});
    if(before.status!==payload.status||before.profile!==payload.profile)await api("harald_timeline",{method:"POST",body:{target_type:"promoter",target_key:p.id,event_type:"status_change",description:`Status: ${before.status||"—"} → ${payload.status||"—"} · Perfil: ${before.profile||"—"} → ${payload.profile||"—"}`},prefer:"return=minimal"});
    state.editForm=null;
   }
   if(name==="editPrivate"){
    if(state.role!=="admin")throw Error("Somente administradores podem alterar dados pessoais.");
-   const fields=["rg","birth_date","personal_email","street","street_number","complement","neighborhood","city","state_code","postal_code","first_due_day","second_due_day","first_due_reference","second_due_reference"];
-   const payload=Object.fromEntries(fields.map(k=>[k,d[k]?.trim()||null]));
+   const fields=["rg","birth_date","personal_email","personal_phone","street","street_number","complement","neighborhood","city","state_code","postal_code","salary","meal_allowance","food_allowance","first_due_day","second_due_day","first_due_reference","second_due_reference"];
+   const payload=Object.fromEntries(fields.map(k=>[k,["salary","meal_allowance","food_allowance"].includes(k)?(d[k]!==""&&d[k]!=null?Number(d[k]):null):(d[k]?.trim()||null)]));
    if(privateBy(state.person)){await api("harald_promoter_private?promoter_id=eq."+encodeURIComponent(state.person),{method:"PATCH",body:payload});}
    else{const cpf=String(d.cpf||"").replace(/\D/g,"");if(cpf.length!==11)throw Error("CPF precisa ter 11 números.");await api("harald_promoter_private",{method:"POST",body:{...payload,cpf, promoter_id:state.person}});}
    state.editForm=null;state.reveal=false;
