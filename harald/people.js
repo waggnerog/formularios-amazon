@@ -274,10 +274,8 @@ async function submit(e){
    state.replace=false;
   }
   if(name==="editPerson"){
-   const p=pby(state.person);const before={status:p.status,profile:p.profile};
-   const payload={status:d.status,profile:d.profile?.trim()||null,registration_number:d.registration_number?.trim()||null,whatsapp:d.whatsapp?.trim()||null,transport_mode:d.transport_mode||null,vehicle_type:d.vehicle_type?.trim()||null,mob2:d.mob2||null,admission_date:d.admission_date||null,weekly_schedule:d.weekly_schedule?.trim()||null,coordinator_name:d.coordinator_name?.trim()||null,geniale_manager:d.geniale_manager?.trim()||null,hiring_type:d.hiring_type||null};
+   const p=pby(state.person);const payload={status:d.status,profile:d.profile?.trim()||null,registration_number:d.registration_number?.trim()||null,whatsapp:d.whatsapp?.trim()||null,transport_mode:d.transport_mode||null,vehicle_type:d.vehicle_type?.trim()||null,mob2:d.mob2||null,admission_date:d.admission_date||null,weekly_schedule:d.weekly_schedule?.trim()||null,coordinator_name:d.coordinator_name?.trim()||null,geniale_manager:d.geniale_manager?.trim()||null,hiring_type:d.hiring_type||null};
    await api("harald_promoters?id=eq."+encodeURIComponent(p.id),{method:"PATCH",body:payload});
-   if(before.status!==payload.status||before.profile!==payload.profile)await api("harald_timeline",{method:"POST",body:{target_type:"promoter",target_key:p.id,event_type:"status_change",description:`Status: ${before.status||"—"} → ${payload.status||"—"} · Perfil: ${before.profile||"—"} → ${payload.profile||"—"}`},prefer:"return=minimal"});
    state.editForm=null;
   }
   if(name==="editPrivate"){
