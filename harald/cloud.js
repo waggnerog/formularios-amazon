@@ -4,7 +4,7 @@ const BASE="https://mcditxbuemxlaewyuwlw.supabase.co";
 const KEY="sb_publishable_6JplhqTzxWN9hTcIhQkcQw_glWN8TyJ";
 const SESSION_KEY="harald.auth.session.v1";
 let session=null, role=null, currentUser=null, isReady=false, timer=null, running=false, retry=false, baseline=null;
-let promoterIds={}, legacySnapshot=null;
+let promoterIds={}, promoterNames={}, personKeyToId={}, legacySnapshot=null;
 const $=s=>document.querySelector(s);
 function clone(x){return JSON.parse(JSON.stringify(x));}
 function esc(x){return String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -77,54 +77,62 @@ async function enter(){
     await loadData();
   }catch(e){gateForm("login","Falha ao conectar: "+e.message);}
 }
+
 async function loadData(){
-  const [sectorRows,assignmentRows,linked,persons,notes]=await Promise.all([
-    getAll("harald_sectors","source_details"),
-    getAll("harald_assignments","source_details"),
-    getAll("harald_sector_promoters","scenario_code,sector_code,promoter_id"),
-    getAll("harald_promoters","id,full_name,whatsapp,registration_number,supervisor_name,supervisor_phone,status"),
-    getAll("harald_notes","target_type,target_key,scenario_code,note_body")
-  ]);
-  if(sectorRows.length===0||assignmentRows.length===0)throw Error("A base de lojas está vazia. Contate o administrador.");
-  const map=new Map(persons.map(p=>[p.id,p])),ps={};promoterIds={};
-  for(const link of linked){
-    const p=map.get(link.promoter_id);if(!p)continue;
-    ps[link.sector_code]={name:p.full_name||"",phone:p.whatsapp||"",badge:p.registration_number||"",supervisor:p.supervisor_name||"",supervisorPhone:p.supervisor_phone||"",situation:p.status||"Não informado"};
-    promoterIds[link.sector_code]=p.id;
-  }
-  const cloudSaved={promoters:ps,notes:{},sectorNotes:{},promoterNotes:{},favorites:{},author:"HARALD"};
-  for(const n of notes){const k=n.target_type==="store"?"notes":n.target_type==="sector"?"sectorNotes":"promoterNotes";cloudSaved[k][n.target_key]=n.note_body;}
-  legacySnapshot=window.haraldApp.getSnapshot();
-  cloudSaved.favorites=legacySnapshot.favorites||{};
-  window.haraldApp.mount({stores:assignmentRows.map(x=>x.source_details),teams:sectorRows.map(x=>x.source_details),saved:cloudSaved});
-  baseline=clone(window.haraldApp.getSnapshot());isReady=true;
-  document.body.classList.remove("auth-locked");
-  $("#authGate")?.remove();
-  const header=$(".topTools");
-  if(header&&!$("#cloudStatus")){const ui=document.createElement("div");ui.className="cloudUser";ui.innerHTML='<span id="cloudStatus" aria-live="polite">☁ Conectado</span><button type="button" id="haraldLogout" title="Encerrar sessão">Sair</button>';header.appendChild(ui);$("#haraldLogout").onclick=logout;}
-  setStatus("☁ Dados sincronizados");
-  if(role==="viewer"){document.body.classList.add("haraldViewer");setStatus("Somente leitura");}
-  if(role!=="viewer"&&Object.keys(legacySnapshot.promoters||{}).length+Object.keys(legacySnapshot.notes||{}).length+Object.keys(legacySnapshot.sectorNotes||{}).length+Object.keys(legacySnapshot.promoterNotes||{}).length>0&&!sessionStorage.getItem("harald.migration.dismissed")){
-    const ui=document.createElement("div");ui.className="legacyNotice";ui.id="legacyNotice";ui.innerHTML='<span><strong>Há contatos ou anotações antigos neste navegador.</strong> Deseja enviá-los ao banco central?</span><button type="button" id="haraldImportLocal">Migrar dados</button><button type="button" id="haraldDismissLocal">Depois</button>';
-    $("#content").prepend(ui);$("#haraldImportLocal").onclick=importLocal;
-    $("#haraldDismissLocal").onclick=()=>{ui.remove();sessionStorage.setItem("harald.migration.dismissed","1");};
-  }
+ const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows]=await Promise.all([
+  getAll("harald_sectors","source_details"),
+  getAll("harald_assignments","source_details"),
+  getAll("harald_occupancies","id,scenario_code,sector_code,promoter_id,start_date,end_date,change_reason,source_name,created_at"),
+  getAll("harald_promoters","id,full_name,whatsapp,registration_number,supervisor_name,supervisor_phone,status,hiring_type,profile,admission_date,scheduled_start_date,weekly_schedule,coordinator_name,geniale_manager,job_title,employment_source,transport_mode,vehicle_type,mob2,source_row"),
+  getAll("harald_notes","target_type,target_key,scenario_code,note_body"),
+  getAll("harald_timeline","id,target_type,target_key,scenario_code,event_type,description,metadata,created_by,created_at"),
+  role==="admin"?getAll("harald_promoter_private","promoter_id,cpf,rg,birth_date,personal_email,personal_phone,street,street_number,complement,neighborhood,city,state_code,postal_code,salary,meal_allowance,food_allowance,first_due_day,second_due_day,first_due_reference,second_due_reference,source_fields") : Promise.resolve([])
+ ]);
+ if(!sectorRows.length||!assignmentRows.length)throw Error("A base de lojas está vazia. Contate o administrador.");
+ const people=new Map(persons.map(p=>[p.id,p])),ps={};promoterIds={};promoterNames={};personKeyToId={};
+ for(const link of occupancies.filter(x=>!x.end_date)){
+  const p=people.get(link.promoter_id);if(!p)continue;
+  ps[link.sector_code]={
+   name:p.full_name||"",phone:p.whatsapp||"",badge:p.registration_number||"",
+   supervisor:p.supervisor_name||"",supervisorPhone:p.supervisor_phone||"",
+   situation:p.status||"Não informado"
+  };
+  promoterIds[link.sector_code]=p.id;promoterNames[link.sector_code]=p.full_name;
+  const dig=String(p.whatsapp||"").replace(/\D/g,"");
+  const norm=String(p.full_name||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-BR").trim();
+  const uiKey=dig.length>=10?"phone:"+(dig.startsWith("55")?dig:"55"+dig):norm?"name:"+norm:"sector:"+link.sector_code;
+  personKeyToId[uiKey]=p.id;
+ }
+ const savedCloud={promoters:ps,notes:{},sectorNotes:{},promoterNotes:{},favorites:{},author:"HARALD"};
+ for(const n of notes){
+  const group=n.target_type==="store"?"notes":n.target_type==="sector"?"sectorNotes":"promoterNotes";
+  if(n.target_type==="promoter"){
+    const key=Object.keys(personKeyToId).find(k=>personKeyToId[k]===n.target_key);
+    if(key)savedCloud.promoterNotes[key]=n.note_body;
+  }else savedCloud[group][n.target_key]=n.note_body;
+ }
+ legacySnapshot=window.haraldApp.getSnapshot();
+ savedCloud.favorites=legacySnapshot.favorites||{};
+ const visibleStores=assignmentRows.map(x=>x.source_details),visibleTeams=sectorRows.map(x=>x.source_details);
+ window.haraldApp.mount({stores:visibleStores,teams:visibleTeams,saved:savedCloud});
+ baseline=clone(window.haraldApp.getSnapshot());isReady=true;
+ document.body.classList.remove("auth-locked");$("#authGate")?.remove();
+ const header=$(".topTools");
+ if(header&&!$("#cloudStatus")){const el=document.createElement("div");el.className="cloudUser";el.innerHTML='<span id="cloudStatus" aria-live="polite">☁ Conectado</span><button type="button" id="haraldLogout" title="Encerrar sessão">Sair</button>';header.appendChild(el);$("#haraldLogout").onclick=logout;}
+ setStatus("☁ Dados sincronizados");
+ if(role==="viewer"){document.body.classList.add("haraldViewer");setStatus("Somente leitura");}
+ window.haraldPeople?.hydrate({persons,occupancies,notes,timeline,privateRows,teams:visibleTeams,stores:visibleStores,role,api});
 }
 async function savePerson(sector,p){
-  if(!p.name?.trim()&&!p.phone?.trim())return;
-  const payload={full_name:p.name?.trim()||"Nome a confirmar",whatsapp:p.phone||null,registration_number:p.badge||null,supervisor_name:p.supervisor||null,supervisor_phone:p.supervisorPhone||null,status:p.situation||"pendente"};
-  let id=promoterIds[sector];
-  if(id){await api("harald_promoters?id=eq."+encodeURIComponent(id),{method:"PATCH",body:payload});}
-  else{
-    const inserted=await api("harald_promoters?select=id",{method:"POST",body:payload,prefer:"return=representation"});
-    id=inserted?.[0]?.id;if(!id)throw Error("Não foi possível gerar o registro do promotor.");
-    const scenario=sector.startsWith("GH1-")?"C1":"C2";
-    await api("harald_sector_promoters?on_conflict=scenario_code,sector_code,promoter_id",{method:"POST",body:{scenario_code:scenario,sector_code:sector,promoter_id:id},prefer:"resolution=merge-duplicates"});
-    promoterIds[sector]=id;
-  }
+ const id=promoterIds[sector];
+ if(!id)throw Error("Utilize Equipe e histórico para vincular o promotor ao setor.");
+ if(p.name?.trim()&&p.name.trim()!==promoterNames[sector])throw Error("Para trocar o ocupante, use Equipe e histórico → Registrar substituição. O nome anterior não pode ser sobrescrito.");
+ const payload={whatsapp:p.phone||null,registration_number:p.badge||null,supervisor_name:p.supervisor||null,supervisor_phone:p.supervisorPhone||null};
+ await api("harald_promoters?id=eq."+encodeURIComponent(id),{method:"PATCH",body:payload});
 }
 async function saveNote(kind,key,value){
   const scenario=kind==="sector"?(key.startsWith("GH1-")?"C1":"C2"):null;
+  if(kind==="promoter")key=personKeyToId[key]||key;
   const filter=`target_type=eq.${encodeURIComponent(kind)}&target_key=eq.${encodeURIComponent(key)}&scenario_code=${scenario?"eq."+scenario:"is.null"}`;
   if(!value?.trim()){await api("harald_notes?"+filter,{method:"DELETE"});return;}
   const payload={target_type:kind,target_key:key,scenario_code:scenario,note_body:value,updated_by:currentUser.id};
@@ -163,6 +171,7 @@ async function importLocal(){
 }
 async function logout(){
  try{if(session)await fetch(BASE+"/auth/v1/logout",{method:"POST",headers:{"apikey":KEY,"Authorization":"Bearer "+session.access_token}});}catch(e){}
+ window.haraldPeople?.reset();
  clearSession();isReady=false;role=null;baseline=null;currentUser=null;
  document.body.classList.remove("haraldViewer");
  gateForm("login","Você saiu da sistemática com segurança.");
@@ -172,5 +181,5 @@ async function start(){
  try{session=JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null");}catch(e){session=null;}
  if(session?.access_token){await enter();}else gateForm();
 }
-window.haraldCloud={start,scheduleSync,isReady:()=>isReady,role:()=>role};
+window.haraldCloud={start,scheduleSync,reload:loadData,isReady:()=>isReady,role:()=>role};
 })();
