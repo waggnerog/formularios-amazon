@@ -1,6 +1,6 @@
 (function peopleModule(){
 "use strict";
-const state={people:[],occupancies:[],timeline:[],notes:[],privateRows:[],sectors:[],stores:[],role:"viewer",scenario:"C2",filter:"ALL",search:"",screen:"sectors",sector:null,person:null,reveal:false,api:null,loading:false};
+const state={people:[],occupancies:[],timeline:[],notes:[],privateRows:[],sectors:[],stores:[],role:"viewer",scenario:"C2",filter:"ALL",search:"",screen:"sectors",sector:null,person:null,store:null,reveal:false,api:null,loading:false};
 let root=null;
 const E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const D=v=>{if(!v)return "Não informado";const x=new Date(v+"T12:00:00");return isNaN(x.getTime())?E(v):x.toLocaleDateString("pt-BR");};
@@ -39,7 +39,7 @@ function navigation(){
  return `<div class="hpSideNav"><div class="hpSideTitle">CONTROLE OPERACIONAL</div>${opts.map(([id,ico,label])=>`<button class="hpSideBtn ${state.screen===id?"sel":""}" data-hpa="nav" data-id="${id}"><span>${ico}</span>${label}</button>`).join("")}<div class="hpSideTitle hpSideTitleLower">ATENÇÃO</div><div class="hpGuide"><b>Setor = vaga permanente</b><p>Trocar promotor não altera lojas, roteiro nem o código do setor. A ocupação anterior permanece no histórico.</p></div></div>`;
 }
 function bread(){
- const entry=state.screen==="sector"?"Histórico do setor":state.screen==="person"?"Ficha do promotor":state.screen==="people"?"Promotores":state.screen==="timeline"?"Linha do tempo":"Setores e vagas";
+ const entry=state.screen==="sector"?"Histórico do setor":state.screen==="person"?"Ficha do promotor":state.screen==="store"?"Histórico da loja":state.screen==="people"?"Promotores":state.screen==="timeline"?"Linha do tempo":"Setores e vagas";
  return `<div class="hpCrumb">HARALD / <b>${entry}</b></div>`;
 }
 function controls(){
@@ -92,6 +92,21 @@ function noteForm(kind,key,scenario=null){
  if(!okWrite())return `<p class="hpHint">Seu perfil permite consultar, mas não registrar anotações.</p>`;
  return `<form class="hpNoteForm" data-form="note"><input type="hidden" name="kind" value="${E(kind)}"/><input type="hidden" name="key" value="${E(key)}"/><input type="hidden" name="scenario" value="${E(scenario||"")}"/><label>Nova anotação no histórico</label><textarea name="body" rows="3" minlength="2" maxlength="5000" placeholder="Registre o fato, a orientação ou a pendência. O histórico anterior não será apagado." required></textarea><div class="hpFormFoot"><small>Não inclua CPF, RG, dados bancários ou outras informações sensíveis nas anotações compartilhadas.</small><button type="submit" class="hpPrimary">Registrar anotação</button></div></form>`;
 }
+
+function storeKey(s){
+ const c=String(s.c||"").replace(/\D/g,"");
+ const norm=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+ return c.length===14?"cnpj:"+c:"loja:"+norm([s.n,s.city,s.uf].join("|"));
+}
+function renderStore(){
+ const s=state.stores.find(x=>x.id===state.store);
+ if(!s)return '<div class="hpEmpty">Loja não localizada no cenário.</div>';
+ const key=storeKey(s);
+ return `<div class="hpTitleRow"><div><span class="hpEyebrow">FICHA E HISTÓRICO DO PONTO DE VENDA</span><h1>${E(s.n)}</h1><p>${E(s.b)} · ${E(s.city)} / ${E(s.uf)} · Setor ${E(s.sector)}</p></div>${badge(s.pri||"Prioridade não informada","blue")}</div>${controls()}
+ <div class="hpHeroGrid"><div class="hpHeroCard"><span>01 / LOJA</span><strong>${E(s.n)}</strong><p>${E(s.end||"Endereço não informado")}</p><div class="hpHeroFacts">${detail("Semana 1",s.w1||"Sem visita informada")}${detail("Semana 2",s.w2||"Sem visita informada")}${detail("Horas/semana",s.hours)}${detail("Tempo/visita",s.visitH)}</div></div><div class="hpHeroCard person"><span>02 / VAGA PERMANENTE</span><strong>${E(s.sector)}</strong><p>O histórico do setor é independente do histórico específico desta loja.</p><button class="hpSoft" data-hpa="openSector" data-sector="${E(s.sector)}" data-scenario="${E(s.sc)}">Abrir setor e substituições →</button></div></div>
+ <section class="hpPanel"><div class="hpPanelTitle"><h2>Anotações e histórico da loja</h2><span class="hpPanelHint">Os registros não são apagados quando o promotor muda.</span></div>${noteForm("store",key)}${timeline("store",key)}</section>`;
+}
+
 function renderSector(){
  const t=sectorBy(state.sector),occ=occupancyBy(state.sector),o=openOcc(state.sector),p=pby(o?.promoter_id);
  if(!t)return `<div class="hpEmpty">Setor não localizado.</div>`;
@@ -129,7 +144,8 @@ function personEditForm(p,pr){
  const privateMode=state.editForm==="private";
  return `<div class="hpModalShade"><form class="hpDialog" data-form="${privateMode?"editPrivate":"editPerson"}"><div class="hpDialogTop"><div><small>CADASTRO PERMANENTE</small><h2>${privateMode?"Editar dados restritos":"Atualizar status e perfil"}</h2></div><button class="hpClose" type="button" data-hpa="cancelEdit">✕</button></div>
  ${privateMode?`
- <label>CPF (somente consulta)</label><input disabled value="•••.•••.•••-••"/>
+ <label>CPF (11 números) ${pr?"· identidade preservada":"· obrigatório no primeiro cadastro"}</label><input name="cpf" inputmode="numeric" maxlength="11" pattern="[0-9]{11}" ${pr?"readonly":"required"} value="${E(pr?.cpf||"")}"/>
+ <label>RG</label><input name="rg" value="${E(pr?.rg||"")}"/>
  <label>Data de nascimento</label><input type="date" name="birth_date" value="${E(pr?.birth_date||"")}"/>
  <label>E-mail particular</label><input type="email" name="personal_email" value="${E(pr?.personal_email||"")}"/>
  <label>Endereço</label><input name="street" value="${E(pr?.street||"")}"/>
@@ -158,7 +174,7 @@ function renderTimeline(){
  return `<div class="hpTitleRow"><div><span class="hpEyebrow">RASTREABILIDADE</span><h1>Linha do tempo</h1><p>Veja substituições e anotações sem perder os registros anteriores.</p></div></div>${controls()}<div class="hpPanel"><div class="hpPanelTitle"><h2>Setores com registros</h2></div><div class="hpTimelineList">${sectors.slice(0,50).map(t=>`<button class="hpTimelineRow" data-hpa="openSector" data-sector="${E(t.sector)}"><strong>${E(t.sector)}</strong><span>${E(t.cities||t.uf||"")}</span>${badge(state.timeline.filter(x=>x.target_type==="sector"&&x.target_key===t.sector).length+" eventos","violet")}</button>`).join("")}</div>${!sectors.length?`<div class="hpEmpty">Ainda não há registros históricos neste filtro.</div>`:""}</div>`;
 }
 function layout(){
- const inner=state.screen==="sectors"?renderSectors():state.screen==="people"?renderPeople():state.screen==="sector"?renderSector():state.screen==="person"?renderPerson():renderTimeline();
+ const inner=state.screen==="sectors"?renderSectors():state.screen==="people"?renderPeople():state.screen==="sector"?renderSector():state.screen==="person"?renderPerson():state.screen==="store"?renderStore():renderTimeline();
  return `<div class="hpShell">${header()}<div class="hpBody"><aside class="hpSidebar">${navigation()}</aside><main class="hpMain">${bread()}${inner}<footer class="hpFooter">Sistemática HARALD · dados autenticados do Supabase · preservação de histórico</footer></main></div></div>`;
 }
 function render(){
@@ -189,6 +205,8 @@ function bindNav(){
   window.__haraldPeopleClicks=true;
   document.addEventListener("click",e=>{
    if(document.body.classList.contains("auth-locked"))return;
+   const storeTrigger=e.target.closest("[data-hp-store]");
+   if(storeTrigger){e.preventDefault();e.stopImmediatePropagation();state.store=storeTrigger.dataset.hpStore;open("store",null,null,storeTrigger.dataset.hpScenario||null);return;}
    const target=e.target.closest("[data-edit-person]");
    if(target){e.preventDefault();e.stopImmediatePropagation();open("sector",target.dataset.editPerson);return;}
    const card=e.target.closest("[data-save-person]");
@@ -214,6 +232,7 @@ async function click(e){
  if(action==="filter"){state.filter=btn.dataset.id;return render();}
  if(action==="openSector"){return open("sector",btn.dataset.sector,null,btn.dataset.scenario||null);}
  if(action==="openPerson"){return open("person",null,btn.dataset.id);}
+ if(action==="openStore"){state.store=btn.dataset.id;return open("store",null,null,btn.dataset.scenario||null);}
  if(action==="replace"){state.replace=true;return render();}
  if(action==="cancelReplace"){state.replace=false;return render();}
  if(action==="editPerson"){state.editForm="public";return render();}
@@ -237,7 +256,7 @@ async function submit(e){
   if(name==="note"){
     const scenario=d.kind==="sector"?d.scenario||state.scenario:null;
     if(!d.body?.trim())throw Error("A anotação não pode ficar vazia.");
-    await api("harald_timeline",{method:"POST",body:{target_type:d.kind,target_key:d.key,scenario_code:scenario,event_type:"note",description:d.body.trim()},prefer:"return=minimal"});
+    await api("harald_notes?on_conflict=target_type,target_key,scenario_code",{method:"POST",body:{target_type:d.kind,target_key:d.key,scenario_code:scenario,note_body:d.body.trim()},prefer:"resolution=merge-duplicates"});
   }
   if(name==="replace"){
    if(d.endDate&&d.startDate<=d.endDate)throw Error("A nova admissão deve ser posterior à saída anterior.");
@@ -254,9 +273,10 @@ async function submit(e){
   }
   if(name==="editPrivate"){
    if(state.role!=="admin")throw Error("Somente administradores podem alterar dados pessoais.");
-   const fields=["birth_date","personal_email","street","street_number","complement","neighborhood","city","state_code","postal_code","first_due_day","second_due_day","first_due_reference","second_due_reference"];
+   const fields=["rg","birth_date","personal_email","street","street_number","complement","neighborhood","city","state_code","postal_code","first_due_day","second_due_day","first_due_reference","second_due_reference"];
    const payload=Object.fromEntries(fields.map(k=>[k,d[k]?.trim()||null]));
-   await api("harald_promoter_private?promoter_id=eq."+encodeURIComponent(state.person),{method:"PATCH",body:payload});
+   if(privateBy(state.person)){await api("harald_promoter_private?promoter_id=eq."+encodeURIComponent(state.person),{method:"PATCH",body:payload});}
+   else{const cpf=String(d.cpf||"").replace(/\D/g,"");if(cpf.length!==11)throw Error("CPF precisa ter 11 números.");await api("harald_promoter_private",{method:"POST",body:{...payload,cpf, promoter_id:state.person}});}
    state.editForm=null;state.reveal=false;
   }
   if(window.haraldCloud?.reload)await window.haraldCloud.reload();else render();
@@ -271,5 +291,5 @@ function reset(){
  close();state.people=[];state.occupancies=[];state.timeline=[];state.notes=[];state.privateRows=[];state.api=null;
  document.getElementById("hpNavEntry")?.remove();
 }
-window.haraldPeople={hydrate,reset,open,openSector:(sector,scenario)=>open("sector",sector,null,scenario||"C2"),openPerson:id=>open("person",null,id)};
+window.haraldPeople={hydrate,reset,open,openSector:(sector,scenario)=>open("sector",sector,null,scenario||"C2"),openPerson:id=>open("person",null,id),openStore:(storeId,scenario)=>{state.store=storeId;open("store",null,null,scenario||"C2");}};
 })();
