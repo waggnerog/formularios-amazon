@@ -22,3 +22,5 @@ jobs:
           node-version: "22"
       - name: Validate HTML and security contract
         run: npm test
+      - name: Validate HARALD cloud panel
+        run: node harald/smoke-check.mjs
