@@ -138,7 +138,7 @@ function geographyDetails(){
  const personRows=rows.map(team=>({team,who:activeInfo(team,maps)})).filter(x=>x.who);
  const peopleIds=new Set(personRows.map(x=>x.who.person.id));
  const allAreas=mode==="region"?REGIONS[st.region]:Object.keys(REGIONS);
- const areaList=mode==="national"?allAreas.map(region=>({title:region,id:region,level:"region",...analyze({ufSet:new Set(REGIONS[region])})})):
+ const areaList=mode==="uf"?[]:mode==="national"?allAreas.map(region=>({title:region,id:region,level:"region",...analyze({ufSet:new Set(REGIONS[region])})})):
  allAreas.map(uf=>({title:UF_NAMES[uf],id:uf,level:"uf",...analyze({ufSet:new Set([uf])})}));
  const sectorList=rows.map(team=>{
   const p=activeInfo(team,maps)?.person, status=maps.statuses.get(team.sector)?.status;
@@ -175,6 +175,8 @@ function coordinates(geometry){
 function geoPaths(){
  if(!st.geo)return `<div class="hdMapLoading">${st.geoError?"Não foi possível abrir a malha. Explore as regiões e estados na lista ao lado.":"Carregando os 27 estados brasileiros…"}</div>`;
  const all=st.geo.features;
+ const sectorCounts=new Map();
+ for(const team of scopedTeams())sectorCounts.set(team.uf,(sectorCounts.get(team.uf)||0)+1);
  const flat=all.flatMap(f=>coordinates(f.geometry).flatMap(poly=>poly.flat()));
  const minX=Math.min(...flat.map(p=>p[0])),maxX=Math.max(...flat.map(p=>p[0])),minY=Math.min(...flat.map(p=>p[1])),maxY=Math.max(...flat.map(p=>p[1]));
  const w=600,h=620,pad=30,scale=Math.min((w-2*pad)/(maxX-minX),(h-2*pad)/(maxY-minY));
@@ -191,7 +193,7 @@ function geoPaths(){
    const xs=coordinatesFlat.map(p=>x(p[0])),ys=coordinatesFlat.map(p=>y(p[1]));
    const anchorX=(Math.min(...xs)+Math.max(...xs))/2,anchorY=(Math.min(...ys)+Math.max(...ys))/2;
    const d=polygons.map(poly=>poly.map(ring=>ring.map(([lon,lat],i)=>`${i===0?"M":"L"}${x(lon).toFixed(1)} ${y(lat).toFixed(1)}`).join(" ")+" Z").join(" ")).join(" ");
-   const count=analyze({ufSet:new Set([uf])}).sectors;
+   const count=sectorCounts.get(uf)||0;
    const region=UF_REGIONS[uf],selected=st.uf===uf?"selected":!st.uf&&st.region===region?"regionSelected":"";
    const dimmed=st.region&&region!==st.region?"dimmed":"";
    const density=count===0?"zero":count<5?"low":count<20?"medium":"high";
@@ -199,7 +201,7 @@ function geoPaths(){
    const digits=String(count).length,badgeW=37+digits*7,badgeH=21;
    const badgeX=px-badgeW/2, badgeY=py-badgeH/2;
    const leader=outside?`<path class="hdMapLeader" d="M ${anchorX.toFixed(1)} ${anchorY.toFixed(1)} L ${px.toFixed(1)} ${py.toFixed(1)}" />`:"";
-   labels.push(`${leader}<g class="hdMapLabel ${outside?"hdMapLabelOutside":""} ${st.uf===uf?"selected":""} ${count===0?"empty":""}" data-hd-map-uf="${uf}" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(count)} setores" role="button" tabindex="0"><title>${esc(UF_NAMES[uf])} · ${nfmt(count)} setores · clique para detalhar</title><rect x="${badgeX.toFixed(1)}" y="${badgeY.toFixed(1)}" width="${badgeW}" height="${badgeH}" rx="7"/><text x="${px.toFixed(1)}" y="${(py+3.5).toFixed(1)}" text-anchor="middle">${uf} <tspan class="hdMapLabelNum">${count}</tspan></text></g>`);
+   labels.push(`${leader}<g class="hdMapLabel ${outside?"hdMapLabelOutside":""} ${st.uf===uf?"selected":""} ${dimmed} ${count===0?"empty":""}" data-hd-map-uf="${uf}" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(count)} setores" role="button" tabindex="0"><title>${esc(UF_NAMES[uf])} · ${nfmt(count)} setores · clique para detalhar</title><rect class="hdMapLabelHit" x="${(badgeX-4).toFixed(1)}" y="${(badgeY-8).toFixed(1)}" width="${badgeW+8}" height="${badgeH+16}" rx="10"/><rect x="${badgeX.toFixed(1)}" y="${badgeY.toFixed(1)}" width="${badgeW}" height="${badgeH}" rx="7"/><text x="${px.toFixed(1)}" y="${(py+3.5).toFixed(1)}" text-anchor="middle">${uf} <tspan class="hdMapLabelNum">${count}</tspan></text></g>`);
    return `<path class="hdMapUF ${selected} ${dimmed} ${density}" d="${d}" data-hd-map-uf="${uf}" role="button" tabindex="0" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(count)} setores"><title>${esc(UF_NAMES[uf])} · ${nfmt(count)} setores · clique para detalhar</title></path>`;
  }).join("");
  return `<svg id="hdBrazilSVG" class="hdBrazilSVG" viewBox="0 0 690 620" role="group" aria-label="Mapa interativo do Brasil com quantidade de setores por estado">${shapes}<g class="hdMapLabels">${labels.join("")}</g></svg>`;
