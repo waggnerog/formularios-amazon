@@ -255,15 +255,15 @@ function handleAction(el){
 function afterRender(){
  const scopeSearch=document.getElementById("hdScopeSearch");
  if(scopeSearch)scopeSearch.addEventListener("input",()=>{
-   const normalize=v=>String(v||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
+   const normalize=v=>String(v||"").normalize("NFD").replace(/\p{M}/gu,"").toLowerCase();
    const query=normalize(scopeSearch.value.trim());
    const rows=[...document.querySelectorAll(".hdMapDetailList > .hdDetailRow")];
    let visible=0;
    for(const row of rows){row.hidden=!!query&&!normalize(row.textContent).includes(query);if(!row.hidden)visible++;}
    const count=document.getElementById("hdResultsCount");if(count)count.textContent=visible+" resultado"+(visible===1?"":"s");
    const empty=document.getElementById("hdScopeSearchEmpty");
-   if(empty)empty.hidden=visible!==0;
-   else if(!visible){const item=document.createElement("p");item.id="hdScopeSearchEmpty";item.className="hdEmpty";item.textContent="Nenhum resultado nesta lista.";document.querySelector(".hdMapDetailList")?.appendChild(item);}
+   if(empty)empty.hidden=visible!==0||!query;
+   else if(!visible&&query){const item=document.createElement("p");item.id="hdScopeSearchEmpty";item.className="hdEmpty";item.textContent="Nenhum resultado nesta lista.";document.querySelector(".hdMapDetailList")?.appendChild(item);}
  });
  const svg=document.getElementById("hdBrazilSVG");if(!svg)return;
  const activate=el=>setUf(el.dataset.hdMapUf);
