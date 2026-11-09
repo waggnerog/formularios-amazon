@@ -1,6 +1,6 @@
 (function peopleModule(){
 "use strict";
-const state={people:[],occupancies:[],timeline:[],notes:[],privateRows:[],sectors:[],stores:[],role:"viewer",scenario:"C2",filter:"ALL",search:"",screen:"sectors",sector:null,person:null,store:null,reveal:false,api:null,loading:false};
+const state={people:[],occupancies:[],timeline:[],notes:[],privateRows:[],sectors:[],stores:[],role:"viewer",scenario:"C2",filter:"ALL",contact:"ALL",search:"",screen:"sectors",sector:null,person:null,store:null,reveal:false,api:null,loading:false};
 let root=null;
 const E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const D=v=>{if(!v)return "Não informado";const x=new Date(v+"T12:00:00");return isNaN(x.getTime())?E(v):x.toLocaleDateString("pt-BR");};
@@ -29,22 +29,22 @@ const contract=t=>t?.model==="HORISTA"?"HORISTA":"CLT";
 const friendlyStatus=v=>v==="ATIVO"?"Ativo no cadastro":v==="PENDENTE"?"Pendente":v==="DESLIGADO"?"Desligado":v||"Não informado";
 const sectorList=()=>state.sectors.filter(t=>t.sc===state.scenario&&(state.filter==="ALL"||contract(t)===state.filter)).filter(t=>{
  const p=pby(openOcc(t.sector)?.promoter_id);
- return !state.search||[t.sector,t.uf,t.cities,t.model,p?.full_name,p?.registration_number].join(" ").toLocaleLowerCase("pt-BR").includes(state.search.toLocaleLowerCase("pt-BR"));
+ return (state.contact==="ALL"||(state.contact==="WITH"?hasPeoplePhone(p):!hasPeoplePhone(p)))&&(!state.search||[t.sector,t.uf,t.cities,t.model,p?.full_name,p?.registration_number,p?.whatsapp].join(" ").toLocaleLowerCase("pt-BR").includes(state.search.toLocaleLowerCase("pt-BR")));
 });
 function header(){
  return `<header class="hpHeader"><div class="hpBrand"><div class="hpMark">H</div><div><b>GENIALE <span>· HARALD</span></b><small>Central de equipes e histórico</small></div></div><div class="hpHeaderRight"><span class="hpSecure">🔒 ${state.role==="admin"?"Administrador":state.role==="editor"?"Editor":"Consulta"}</span><button type="button" class="hpClose" data-hpa="close" title="Voltar ao painel">✕ <span>Voltar ao painel</span></button></div></header>`;
 }
 function navigation(){
  const opts=[["sectors","▦","Setores e vagas"],["people","♙","Promotores"],["timeline","◷","Linha do tempo"]];
- return `<div class="hpSideNav"><div class="hpSideTitle">CONTROLE OPERACIONAL</div>${opts.map(([id,ico,label])=>`<button class="hpSideBtn ${state.screen===id?"sel":""}" data-hpa="nav" data-id="${id}"><span>${ico}</span>${label}</button>`).join("")}<div class="hpSideTitle hpSideTitleLower">ATENÇÃO</div><div class="hpGuide"><b>Setor = vaga permanente</b><p>Trocar promotor não altera lojas, roteiro nem o código do setor. A ocupação anterior permanece no histórico.</p></div></div>`;
+ return `<div class="hpSideNav"><div class="hpSideTitle">CONTROLE OPERACIONAL</div>${opts.map(([id,ico,label])=>`<button class="hpSideBtn ${(state.screen===id||(state.screen==="sector"&&id==="sectors"))?"sel":""}" data-hpa="nav" data-id="${id}"><span>${ico}</span>${label}</button>`).join("")}<div class="hpSideTitle hpSideTitleLower">ATENÇÃO</div><div class="hpGuide"><b>Setor = vaga permanente</b><p>Trocar promotor não altera lojas, roteiro nem o código do setor. A ocupação anterior permanece no histórico.</p></div></div>`;
 }
 function bread(){
  const entry=state.screen==="sector"?"Histórico do setor":state.screen==="person"?"Ficha do promotor":state.screen==="store"?"Histórico da loja":state.screen==="people"?"Promotores":state.screen==="timeline"?"Linha do tempo":"Setores e vagas";
  return `<div class="hpCrumb">HARALD / <b>${entry}</b></div>`;
 }
-function controls(){
- if(["sector","person","store"].includes(state.screen))return `<button class="hpSoft" data-hpa="back">← Voltar à visão geral</button>`;
- return `<div class="hpControls"><div class="hpSearchBox"><span>⌕</span><input id="hpSearch" placeholder="Buscar setor, cidade, promotor ou matrícula" value="${E(state.search)}" aria-label="Pesquisar registros" /></div><select id="hpScenario" aria-label="Etapa da operação"><option value="C1" ${state.scenario==="C1"?"selected":""}>Etapa 1</option><option value="C2" ${state.scenario==="C2"?"selected":""}>Operação completa</option></select><div class="hpSegment" role="group" aria-label="Tipo de vínculo">${[["ALL","Todos"],["CLT","CLT"],["HORISTA","Horistas"]].map(([id,label])=>`<button class="${state.filter===id?"sel":""}" data-hpa="filter" data-id="${id}">${label}</button>`).join("")}</div></div>`;
+function controls(forceList=false){
+ if(!forceList&&["sector","person","store"].includes(state.screen))return `<button class="hpSoft" data-hpa="back">← Voltar à visão geral</button>`;
+ return `<div class="hpControls"><div class="hpSearchBox"><span>⌕</span><input id="hpSearch" placeholder="Buscar setor, cidade, promotor ou matrícula" value="${E(state.search)}" aria-label="Pesquisar registros" /></div><select id="hpScenario" aria-label="Etapa da operação"><option value="C1" ${state.scenario==="C1"?"selected":""}>Etapa 1</option><option value="C2" ${state.scenario==="C2"?"selected":""}>Operação completa</option></select><select id="hpContactFilter" aria-label="Filtro por contato"><option value="ALL" ${state.contact==="ALL"?"selected":""}>Todos os contatos</option><option value="WITH" ${state.contact==="WITH"?"selected":""}>✓ Com contato</option><option value="WITHOUT" ${state.contact==="WITHOUT"?"selected":""}>! Sem contato</option></select><div class="hpSegment" role="group" aria-label="Tipo de vínculo">${[["ALL","Todos"],["CLT","CLT"],["HORISTA","Horistas"]].map(([id,label])=>`<button class="${state.filter===id?"sel":""}" data-hpa="filter" data-id="${id}">${label}</button>`).join("")}</div></div>`;
 }
 function dash(){
  const teams=sectorList(),occupied=teams.filter(t=>!!openOcc(t.sector)),upcoming=occupied.filter(t=>{const o=openOcc(t.sector);return days(o.start_date)>0}),missing=teams.length-occupied.length;
@@ -54,13 +54,38 @@ function dash(){
   ["Inícios previstos",upcoming.length,"Com admissão futura","amber"],
   ["Sem cadastro",missing,"Não significa vaga oficialmente aberta","grey"]].map(x=>`<div class="hpMetric ${x[3]}"><div>${E(x[0])}</div><strong>${x[1].toLocaleString("pt-BR")}</strong><small>${E(x[2])}</small></div>`).join("")}</div>`;
 }
+function hasPeoplePhone(p){
+ const digits=String(p?.whatsapp||"").replace(/\D/g,"");
+ return digits.length===10||digits.length===11||(digits.startsWith("55")&&(digits.length===12||digits.length===13));
+}
+function hasSectorPhone(t){
+ const p=pby(openOcc(t.sector)?.promoter_id);
+ return hasPeoplePhone(p);
+}
+function peopleContactCount(items){
+ const yes=items.filter(hasSectorPhone).length;
+ return `<div class="hpContactCounts"><span class="hpBadge active">✓ ${yes} com contato</span><span class="hpBadge scheduled">! ${items.length-yes} sem contato</span></div>`;
+}
 function sectorCard(t){
- const o=openOcc(t.sector),p=pby(o?.promoter_id),st=statusFor(o,p),recorded=occupancyBy(t.sector).length;
- return `<article class="hpSectorCard"><div class="hpCardTop"><strong>${E(t.sector)}</strong>${badge(model(t),t.model==="HORISTA"?"muted":"blue")}</div><p>${E(t.cities||t.uf||"")}</p><div class="hpStoreStrip"><span>◫ <b>${E(t.pdvs||0)}</b> lojas</span><span>◷ <b>${E(t.hours||0)}h</b> atend./sem</span><span>↔ <b>${E(t.modal||"—")}</b></span></div><div class="hpAssigned"><div class="hpAvatar">${E(initials(p?.full_name))}</div><div><strong>${E(p?.full_name||"Promotor não cadastrado")}</strong><small>${E(p?.registration_number?"Matrícula "+p.registration_number:"Matrícula pendente")}</small></div></div><div class="hpCardFoot">${badge(st.label,st.cls)}${recorded>1?badge(`${recorded-1} anterior(es)`,"violet"):""}</div><button class="hpCardAction" data-hpa="openSector" data-sector="${E(t.sector)}">Abrir setor e histórico →</button></article>`;
+ const o=openOcc(t.sector),p=pby(o?.promoter_id),st=statusFor(o,p),history=occupancyBy(t.sector).length,has=hasPeoplePhone(p);
+ return `<button class="hpSectorListRow ${has?"":"noContact"}" type="button" data-hpa="openSector" data-sector="${E(t.sector)}" aria-label="Abrir ficha e histórico do setor ${E(t.sector)}, ${has?"com contato":"sem contato"}">
+ <span class="hpSectorId"><strong>${E(t.sector)}</strong><small>${E(model(t))} · ${E(t.modal||"Modal não informado")}</small></span>
+ <span class="hpSectorCities">${E(t.cities||t.uf||"Cidades não informadas")}</span>
+ <span class="hpSectorOwner"><span class="hpAvatar">${E(initials(p?.full_name))}</span><span><strong>${E(p?.full_name||"Sem promotor")}</strong><small>${E(p?.registration_number?"Matrícula "+p.registration_number:"Matrícula pendente")}</small></span></span>
+ <span class="hpSectorContact">${badge(has?"✓ Com contato":"! Sem contato",has?"active":"scheduled")}<small>${has?E(p.whatsapp):"Telefone ausente ou inválido"}</small></span>
+ <span class="hpSectorHours"><strong>${E(t.pdvs||0)} lojas</strong><small>${E(t.hours||0)}h / semana</small></span>
+ <span class="hpSectorArrow" aria-hidden="true">›</span>
+ </button>`;
 }
 function renderSectors(){
- const teams=sectorList();
- return `<div class="hpTitleRow"><div><span class="hpEyebrow">VISÃO PRINCIPAL</span><h1>Setores e responsáveis</h1><p>Primeiro encontre o setor. Depois consulte o ocupante, a programação e o histórico.</p></div></div>${controls()}${dash()}<div class="hpSubhead"><h2>${teams.length} setores encontrados</h2><span>Setor é a vaga · código permanente</span></div><div class="hpCards">${teams.slice(0,200).map(sectorCard).join("")}</div>${teams.length>200?`<div class="hpHint">Exibindo os primeiros 200 registros. Use a busca para localizar os demais setores.</div>`:""}${!teams.length?`<div class="hpEmpty">Nenhum setor corresponde aos filtros.</div>`:""}`;
+ const teams=sectorList(),withContacts=teams.filter(hasSectorPhone).length;
+ const list=teams.slice(0,500);
+ return `<div class="hpTitleRow"><div><span class="hpEyebrow">VISÃO PRINCIPAL</span><h1>Setores e responsáveis</h1><p>Lista de setores permanentes. Clique na linha para abrir a ficha completa e o histórico em um painel lateral.</p></div></div>${controls(true)}${dash()}
+ <div class="hpSubhead"><h2>${teams.length} setores encontrados</h2>${peopleContactCount(teams)}</div>
+ <div class="hpSectorListHeader" aria-hidden="true"><span>SETOR / MODELO</span><span>CIDADES</span><span>RESPONSÁVEL</span><span>CONTATO</span><span>ATENDIMENTO</span><span></span></div>
+ <div class="hpSectorRows" aria-label="Lista de setores">${list.map(sectorCard).join("")}</div>
+ ${teams.length>500?`<div class="hpHint">Exibindo 500 setores; use a busca e os filtros para localizar os demais.</div>`:""}
+ ${!teams.length?`<div class="hpEmpty">Nenhum setor corresponde aos filtros selecionados.</div>`:""}`;
 }
 function personCard(p){
  const occ=occPerson(p.id).find(x=>x.scenario_code===state.scenario&&x.end_date===null)||occPerson(p.id).find(x=>x.scenario_code===state.scenario);
@@ -73,6 +98,7 @@ function renderPeople(){
  const o=occPerson(p.id).find(x=>x.scenario_code===state.scenario);
  if(!o)return false;
  if(state.filter!=="ALL" && p.hiring_type!==state.filter && contract(sectorBy(o.sector_code))!==state.filter)return false;
+ if(state.contact!=="ALL"&&(state.contact==="WITH"?!hasPeoplePhone(p):hasPeoplePhone(p)))return false;
  return !q||[p.full_name,p.registration_number,p.profile,p.status,o.sector_code].join(" ").toLocaleLowerCase("pt-BR").includes(q);
  }).sort((a,b)=>a.full_name.localeCompare(b.full_name,"pt-BR"));
  return `<div class="hpTitleRow"><div><span class="hpEyebrow">CADASTRO DE PESSOAS</span><h1>Promotores</h1><p>O profissional tem seu próprio cadastro. A lotação e as substituições ficam no histórico do setor.</p></div></div>${controls()}<div class="hpSubhead"><h2>${list.length} profissionais cadastrados</h2>${badge("Dados pessoais protegidos","violet")}</div><div class="hpPersonList">${list.map(personCard).join("")}</div>${!list.length?`<div class="hpEmpty">Nenhum profissional corresponde a esta busca.</div>`:""}`;
@@ -183,8 +209,8 @@ function renderTimeline(){
  return `<div class="hpTitleRow"><div><span class="hpEyebrow">RASTREABILIDADE</span><h1>Linha do tempo</h1><p>Veja substituições e anotações sem perder os registros anteriores.</p></div></div>${controls()}<div class="hpPanel"><div class="hpPanelTitle"><h2>Setores com registros</h2></div><div class="hpTimelineList">${sectors.slice(0,50).map(t=>`<button class="hpTimelineRow" data-hpa="openSector" data-sector="${E(t.sector)}"><strong>${E(t.sector)}</strong><span>${E(t.cities||t.uf||"")}</span>${badge(state.timeline.filter(x=>x.target_type==="sector"&&x.target_key===t.sector).length+" eventos","violet")}</button>`).join("")}</div>${!sectors.length?`<div class="hpEmpty">Ainda não há registros históricos neste filtro.</div>`:""}</div>`;
 }
 function layout(){
- const inner=state.screen==="sectors"?renderSectors():state.screen==="people"?renderPeople():state.screen==="sector"?renderSector():state.screen==="person"?renderPerson():state.screen==="store"?renderStore():renderTimeline();
- return `<div class="hpShell">${header()}<div class="hpBody"><aside class="hpSidebar">${navigation()}</aside><main class="hpMain">${bread()}${inner}<footer class="hpFooter">Sistemática HARALD · dados autenticados do Supabase · preservação de histórico</footer></main></div></div>`;
+ const inner=state.screen==="sectors"||state.screen==="sector"?renderSectors():state.screen==="people"?renderPeople():state.screen==="person"?renderPerson():state.screen==="store"?renderStore():renderTimeline();
+ return `<div class="hpShell">${header()}<div class="hpBody"><aside class="hpSidebar">${navigation()}</aside><main class="hpMain">${bread()}${inner}<footer class="hpFooter">Sistemática HARALD · dados autenticados do Supabase · preservação de histórico</footer></main></div></div>${state.screen==="sector"?`<div class="hpSectorShade" data-hpa="closeSector"><aside class="hpSectorDrawer" role="dialog" aria-modal="true" aria-label="Ficha detalhada do setor"><div class="hpSectorDrawerTop"><b>Ficha completa do setor</b><button class="hpClose" type="button" data-hpa="closeSector" aria-label="Fechar ficha">✕ Fechar</button></div><div class="hpSectorDrawerBody">${renderSector()}</div></aside></div>`:""}`;
 }
 function render(){
  if(!root) return;
@@ -195,6 +221,7 @@ function render(){
   const q=state.search;render();const n=root.querySelector("#hpSearch");if(n){n.focus();n.setSelectionRange(Math.min(s,q.length),Math.min(s,q.length));}
  });
  root.querySelector("#hpScenario")?.addEventListener("change",e=>{state.scenario=e.target.value;state.screen="sectors";render();});
+ root.querySelector("#hpContactFilter")?.addEventListener("change",e=>{state.contact=e.target.value;render();});
 }
 function open(screen="sectors",sector=null,person=null,scenario=null){
  if(!root){root=document.createElement("div");root.id="hpRoot";root.className="hpOverlay";document.body.appendChild(root);root.addEventListener("click",click);root.addEventListener("submit",submit);}
@@ -236,6 +263,7 @@ async function click(e){
  const btn=e.target.closest("[data-hpa]");if(!btn)return;
  const action=btn.dataset.hpa;
  if(action==="close")return close();
+ if(action==="closeSector"){if(btn.classList.contains("hpSectorShade")&&e.target!==btn)return;return nav("sectors");}
  if(action==="back")return nav("sectors");
  if(action==="nav")return nav(btn.dataset.id);
  if(action==="filter"){state.filter=btn.dataset.id;return render();}
