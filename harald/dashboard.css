@@ -253,3 +253,12 @@
  .hdScopeKpis strong{font-size:16px}
  .hdScopedModels>div b{font-size:10px}
 }
+
+/* Busca dentro do quadro territorial (sem ampliar o quadro) */
+.hdDetailSearch{display:flex;align-items:center;gap:7px;min-height:35px;border:1px solid #e3e9f4;background:#f9fbff;border-radius:10px;margin-top:12px;padding:0 9px}
+.hdDetailSearch>span{font-size:20px;color:#8d9cbb}
+.hdDetailSearch input{flex:1;min-width:0;border:0;background:transparent;color:#445475;font:inherit;font-size:11px;padding:9px 2px;outline:none}
+.hdDetailSearch input::placeholder{color:#9aa6bb}
+.hdDetailSearch:focus-within{border-color:#7b86d0;box-shadow:0 0 0 2px #e2e6ff}
+.hdDetailSearch small{color:#8796ad;font-size:9px;white-space:nowrap}
+.hdMapDetailList>.hdDetailRow[hidden],.hdMapDetailList>#hdScopeSearchEmpty[hidden]{display:none!important}
