@@ -161,6 +161,7 @@ function geographyDetails(){
  <div class="hdScopeKpis" aria-label="Indicadores do local selecionado"><div><strong>${nfmt(m.sectors)}</strong><span>Setores</span></div><div><strong>${nfmt(m.stores)}</strong><span>Lojas</span></div><div><strong>${nfmt(m.active)}</strong><span>Promotores ativos*</span></div><div><strong>${nfmt(m.planned,st.week==="AVG"?1:0)}</strong><span>Visitas previstas</span></div></div>
  <div class="hdScopedModels" aria-label="Distribuição de equipes">${GROUPS.map(g=>{const n=analyze({model:g.key,ufSet:set});return `<div><span class="hdGroupMark ${g.accent}"></span><span>${esc(g.name)}</span><b>${n.sectors} setores</b></div>`;}).join("")}</div>
  ${tabHeader}
+ ${mode==="uf"?`<div class="hdDetailSearch"><span aria-hidden="true">⌕</span><input id="hdScopeSearch" type="search" placeholder="Buscar setor, cidade ou promotor" aria-label="Pesquisar nesta lista" autocomplete="off"/><small id="hdResultsCount">${nfmt(listSize)} registros</small></div>`:""}
  <div class="hdMapSubhead"><span>${esc(sectionTitle)}</span><span>${nfmt(listSize)}</span></div>
  </div>
  <div class="hdDetailScroll" tabindex="0" role="region" aria-label="${esc(sectionTitle)}; lista rolável"><div class="hdMapDetailList">${listHtml||`<p class="hdEmpty">${empty}</p>`}</div></div>
@@ -252,6 +253,18 @@ function handleAction(el){
  return false;
 }
 function afterRender(){
+ const scopeSearch=document.getElementById("hdScopeSearch");
+ if(scopeSearch)scopeSearch.addEventListener("input",()=>{
+   const normalize=v=>String(v||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
+   const query=normalize(scopeSearch.value.trim());
+   const rows=[...document.querySelectorAll(".hdMapDetailList > .hdDetailRow")];
+   let visible=0;
+   for(const row of rows){row.hidden=!!query&&!normalize(row.textContent).includes(query);if(!row.hidden)visible++;}
+   const count=document.getElementById("hdResultsCount");if(count)count.textContent=visible+" resultado"+(visible===1?"":"s");
+   const empty=document.getElementById("hdScopeSearchEmpty");
+   if(empty)empty.hidden=visible!==0;
+   else if(!visible){const item=document.createElement("p");item.id="hdScopeSearchEmpty";item.className="hdEmpty";item.textContent="Nenhum resultado nesta lista.";document.querySelector(".hdMapDetailList")?.appendChild(item);}
+ });
  const svg=document.getElementById("hdBrazilSVG");if(!svg)return;
  const activate=el=>setUf(el.dataset.hdMapUf);
  svg.addEventListener("click",e=>{const el=e.target.closest("[data-hd-map-uf]");if(el)activate(el);});
