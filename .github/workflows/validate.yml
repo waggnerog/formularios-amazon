@@ -24,3 +24,5 @@ jobs:
         run: npm test
       - name: Validate HARALD cloud panel
         run: node harald/smoke-check.mjs
+      - name: Validate HARALD dashboard and Brazil map
+        run: node harald/dashboard-smoke.mjs
