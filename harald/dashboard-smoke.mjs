@@ -72,7 +72,8 @@ const region={hasAttribute:(name)=>name==='data-hd-region',dataset:{hdRegion:'Su
 assert.equal(app.handleAction(region),true);
 const regionHtml=app.render(params);
 assert.equal(app.getState().region,'Sudeste');
-assert.ok(regionHtml.includes('Estados da região'));
+assert.ok(regionHtml.includes('Estados desta região'));
+assert.ok(regionHtml.includes('hdDetailScroll'));
 const uf={hasAttribute:(name)=>name==='data-hd-uf',dataset:{hdUf:'SP'}};
 assert.equal(app.handleAction(uf),true);
 const ufHtml=app.render(params);
@@ -84,8 +85,6 @@ assert.equal(app.handleAction(tab),true);
 const peopleHtml=app.render(params);
 assert.ok(peopleHtml.includes('Profissional Teste A'));
 assert.ok(peopleHtml.includes('Promotores vinculados'));
-assert.ok(ufHtml.includes('GH2-SP-001'));
-
 assert.ok(ufHtml.includes('GH2-SP-001'));
 assert.ok(refreshCount>=2,'Seleção deve atualizar a interface');
 
