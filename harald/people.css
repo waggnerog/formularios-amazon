@@ -30,3 +30,50 @@ body.hp-open{overflow:hidden}
 @media(max-width:1180px){.hpCards{grid-template-columns:repeat(2,minmax(0,1fr))}.hpMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.hpDetails.sensitive{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:810px){.hpBody{display:block}.hpSidebar{padding:10px 13px;border-right:0;border-bottom:1px solid #e5e9f0}.hpSideNav{display:flex;gap:6px;overflow-x:auto}.hpSideTitle,.hpGuide{display:none}.hpSideBtn{width:auto;white-space:nowrap;font-size:11px;padding:10px 13px;margin:0}.hpHeader{padding:0 14px;height:66px}.hpHeaderRight{gap:6px}.hpClose span{display:none}.hpMain{padding:17px}.hpHeroGrid{grid-template-columns:1fr}.hpTwoCols{grid-template-columns:1fr}.hpCards{grid-template-columns:repeat(2,minmax(0,1fr))}.hpPersonHeader{flex-wrap:wrap}}
 @media(max-width:570px){.hpCards{grid-template-columns:1fr}.hpMetrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.hpMetric{padding:15px}.hpMetric strong{font-size:28px}.hpTitleRow h1{font-size:24px}.hpBrand b{font-size:12px}.hpBrand small{font-size:9px}.hpSecure{font-size:10px}.hpControls{display:grid;grid-template-columns:1fr 1fr}.hpSearchBox{grid-column:1/-1;min-width:0}.hpSegment{grid-column:1/-1;justify-content:space-between}.hpControls select{width:100%}.hpPersonCard{align-items:start;flex-wrap:wrap}.hpPersonSide{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left}.hpPersonHeaderActions{width:100%}.hpStoreStrip{font-size:9px}.hpPanel{padding:15px}.hpDetails{grid-template-columns:1fr 1fr}.hpDetails.sensitive{grid-template-columns:1fr}.hpFormFoot{display:block}.hpFormFoot .hpPrimary{margin-top:10px}.hpHeroCard{padding:18px}.hpDialog{padding:19px}.hpTimelineRow{grid-template-columns:1fr auto}.hpTimelineRow>span{grid-column:1/-1;grid-row:2}.hpHeader{position:sticky;top:0}}
+
+/* 2.2 — listas operacionais e painel lateral dos setores */
+.hpContactCounts{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.hpSectorListHeader{display:grid;grid-template-columns:minmax(135px,1.05fr) minmax(115px,1.05fr) minmax(160px,1.4fr) minmax(124px,1fr) minmax(105px,.8fr) 20px;gap:14px;padding:0 17px 10px;font-size:10px;color:#8c96aa;letter-spacing:.45px;font-weight:850}
+.hpSectorRows{display:flex;flex-direction:column;gap:8px}
+.hpSectorListRow{width:100%;display:grid;grid-template-columns:minmax(135px,1.05fr) minmax(115px,1.05fr) minmax(160px,1.4fr) minmax(124px,1fr) minmax(105px,.8fr) 20px;gap:14px;align-items:center;text-align:left;background:#fff;border:1px solid #e5eaf4;border-left:4px solid #ccd0f4;border-radius:13px;padding:17px;box-shadow:0 5px 15px rgba(36,48,94,.045);color:#283756;font:inherit;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.hpSectorListRow:hover{border-color:#999fdf;border-left-color:#6670d0;box-shadow:0 9px 24px rgba(58,71,134,.12)}
+.hpSectorListRow:focus-visible{outline:3px solid #6569cc;outline-offset:2px}
+.hpSectorListRow.noContact{border-left-color:#e9b862}
+.hpSectorListRow .hpSectorId,.hpSectorListRow .hpSectorOwner>span:last-child,.hpSectorListRow .hpSectorContact,.hpSectorListRow .hpSectorHours{display:flex;flex-direction:column;gap:5px;min-width:0}
+.hpSectorId strong{color:#344587;font-size:14px;white-space:nowrap}
+.hpSectorId small,.hpSectorCities{color:#7e8ba5;font-size:11px}
+.hpSectorOwner{display:flex;gap:9px;align-items:center;min-width:0}
+.hpSectorOwner strong{font-size:12px;color:#34415f;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;max-width:200px}
+.hpSectorOwner small,.hpSectorContact small,.hpSectorHours small{font-size:10px;color:#8a96ad}
+.hpSectorHours strong{font-size:13px;color:#435173}
+.hpSectorArrow{font-size:24px;color:#7680bb;justify-self:end}
+.hpSectorShade{position:fixed;inset:0;background:rgba(15,24,49,.35);z-index:10200;display:flex;justify-content:flex-end;backdrop-filter:blur(2px)}
+.hpSectorDrawer{width:min(710px,100vw);height:100dvh;display:flex;flex-direction:column;background:#f8faff;box-shadow:-20px 0 60px rgba(31,42,85,.16);overflow:hidden;animation:hpDrawerAppear .18s ease-out}
+@keyframes hpDrawerAppear{from{transform:translateX(16px);opacity:.7}to{transform:translateX(0);opacity:1}}
+.hpSectorDrawerTop{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;padding:15px 24px;border-bottom:1px solid #e7eaf4}
+.hpSectorDrawerTop b{color:#404b77;font-size:12px;text-transform:uppercase;letter-spacing:.65px}
+.hpSectorDrawerBody{overflow-y:auto;overscroll-behavior:contain;padding:22px;flex:1;min-height:0}
+.hpSectorDrawerBody .hpHeroGrid,.hpSectorDrawerBody .hpTwoCols{grid-template-columns:1fr}
+.hpSectorDrawerBody .hpTitleRow h1{font-size:27px}
+.hpSectorDrawerBody .hpPanel{padding:17px}
+.hpSectorDrawerBody .hpHeroCard{padding:19px}
+.hpSectorDrawerBody .hpDetails{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hpSectorDrawerBody .hpModalShade{z-index:11000}
+@media(max-width:1230px){
+ .hpSectorListHeader{display:none}
+ .hpSectorListRow{grid-template-columns:minmax(130px,1fr) minmax(180px,1.5fr) minmax(135px,1fr) minmax(85px,.8fr) 20px}
+ .hpSectorCities{display:none}
+}
+@media(max-width:720px){
+ .hpSectorListRow{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:13px}
+ .hpSectorListRow .hpSectorId{grid-column:1;grid-row:1}
+ .hpSectorListRow .hpSectorOwner{grid-column:1;grid-row:2}
+ .hpSectorListRow .hpSectorContact{grid-column:1;grid-row:3;flex-direction:row;align-items:center;flex-wrap:wrap}
+ .hpSectorListRow .hpSectorHours{grid-column:2;grid-row:2/4;text-align:right;align-self:center}
+ .hpSectorListRow .hpSectorArrow{grid-column:2;grid-row:1}
+ .hpSectorOwner strong{max-width:215px}
+ .hpSectorDrawerTop{padding:12px 15px}
+ .hpSectorDrawerBody{padding:13px}
+ .hpSectorDrawerBody .hpTitleRow h1{font-size:23px}
+ .hpSectorDrawerBody .hpDetails{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
