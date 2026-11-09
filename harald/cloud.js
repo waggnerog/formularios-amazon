@@ -79,14 +79,18 @@ async function enter(){
 }
 
 async function loadData(){
- const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows]=await Promise.all([
+ const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows,routeDays,sectorStatuses,actualVisits,actualImports]=await Promise.all([
   getAll("harald_sectors","source_details"),
   getAll("harald_assignments","source_details"),
   getAll("harald_occupancies","id,scenario_code,sector_code,promoter_id,start_date,end_date,change_reason,source_name,created_at"),
   getAll("harald_promoters","id,full_name,whatsapp,registration_number,supervisor_name,supervisor_phone,status,hiring_type,profile,admission_date,scheduled_start_date,weekly_schedule,coordinator_name,geniale_manager,job_title,employment_source,transport_mode,vehicle_type,mob2,source_row"),
   getAll("harald_notes","target_type,target_key,scenario_code,note_body"),
   getAll("harald_timeline","id,target_type,target_key,scenario_code,event_type,description,metadata,created_by,created_at"),
-  role==="admin"?getAll("harald_promoter_private","promoter_id,cpf,rg,birth_date,personal_email,personal_phone,street,street_number,complement,neighborhood,city,state_code,postal_code,salary,meal_allowance,food_allowance,first_due_day,second_due_day,first_due_reference,second_due_reference,source_fields") : Promise.resolve([])
+  role==="admin"?getAll("harald_promoter_private","promoter_id,cpf,rg,birth_date,personal_email,personal_phone,street,street_number,complement,neighborhood,city,state_code,postal_code,salary,meal_allowance,food_allowance,first_due_day,second_due_day,first_due_reference,second_due_reference,source_fields") : Promise.resolve([]),
+  getAll("harald_route_days","scenario_code,sector_code,store_key,cycle_week,weekday,scheduled"),
+  getAll("harald_sector_status","scenario_code,sector_code,status,effective_on,note,source_name"),
+  getAll("harald_visit_actuals","scenario_code,sector_code,store_key,cycle_week,visit_date,promoter_id,result"),
+  getAll("harald_actual_imports","scenario_code,cycle_week,period_start,period_end,coverage_status,source_name,uploaded_at")
  ]);
  if(!sectorRows.length||!assignmentRows.length)throw Error("A base de lojas está vazia. Contate o administrador.");
  const people=new Map(persons.map(p=>[p.id,p])),ps={};promoterIds={};promoterNames={};personKeyToId={};
@@ -122,6 +126,8 @@ async function loadData(){
  setStatus("☁ Dados sincronizados");
  if(role==="viewer"){document.body.classList.add("haraldViewer");setStatus("Somente leitura");}
  window.haraldPeople?.hydrate({persons,occupancies,notes,timeline,privateRows,teams:visibleTeams,stores:visibleStores,role,api});
+ window.haraldDashboard?.hydrate({persons,occupancies,routeDays,sectorStatuses,actualVisits,actualImports,stores:visibleStores,teams:visibleTeams,role});
+ window.haraldApp?.refresh?.();
 }
 async function savePerson(sector,p){
  const id=promoterIds[sector];
