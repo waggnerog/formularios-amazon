@@ -15,6 +15,12 @@ assert.deepEqual(data.teams,[],'Setores nao podem estar embutidos no HTML public
 assert.ok(html.includes('href="./cloud.css"'),'Estilo de login nao carregado');
 assert.ok(html.includes('src="./cloud.js"'),'Cliente Supabase nao carregado');
 assert.ok(html.includes('src="./people.js"'),'Central de pessoas nao carregada');
+assert.ok(html.includes('href="./lists.css"'),'CSS da lista de setores ausente');
+assert.ok(html.includes('class="sectorListRow'),'Setores nao sao exibidos como linhas');
+assert.ok(html.includes('data-filter="contact"'),'Filtro de contato ausente');
+assert.ok(people.includes('hpSectorRows'),'Equipe e historico precisa seguir o padrao de lista');
+assert.ok(people.includes('hpSectorDrawer'),'Drawer lateral do setor ausente');
+assert.ok(people.includes('id="hpContactFilter"'),'Filtro de contato da central ausente');
 assert.ok(html.includes('href="./people.css"'),'CSS da central de pessoas ausente');
 assert.ok(peopleStyles.includes('.hpOverlay'),'Interface principal sem estilos');
 assert.ok(cloud.includes('harald_occupancies'),'Ocupacoes historicas nao consultadas');
