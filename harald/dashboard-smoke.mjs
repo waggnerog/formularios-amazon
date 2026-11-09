@@ -84,10 +84,11 @@ const imported={
   {scenario_code:'C2',cycle_week:1,period_start:'2026-11-01',period_end:'2026-11-30',coverage_status:'complete',uploaded_at:'2026-11-09T10:00:00Z'},
   {scenario_code:'C2',cycle_week:2,period_start:'2026-11-01',period_end:'2026-11-30',coverage_status:'complete',uploaded_at:'2026-11-09T10:00:00Z'}
  ],
- actualVisits:[{scenario_code:'C2',cycle_week:1,sector_code:'GH2-SP-001',store_key:'a',visit_date:'2026-11-09',result:'realized'}]
+ actualVisits:[{scenario_code:'C2',cycle_week:1,sector_code:'GH2-SP-001',store_key:'a',visit_date:'2026-11-09',result:'realized'}, {scenario_code:'C2',cycle_week:1,sector_code:'GH2-RJ-001',store_key:'b',visit_date:'2026-11-09',result:'realized'}]
 };
 app.hydrate(imported);
 const withActuals=app.render(params);
-assert.ok(withActuals.includes('0,5'),'Com dois períodos completos, uma visita realizada corresponde a média 0,5');
+const totalRow=withActuals.match(/<tr class="hdTableTotal">([\s\S]*?)<\/tr>/)?.[1];
+assert.ok(totalRow?.endsWith('<td>0,5</td>'),'Média por ativo não pode incluir realização de setor sem promotor ativo');
 assert.ok(!withActuals.includes('Aguardando base de execução'),'Carga de execução completa permite computar realizado');
 console.log('HARALD dashboard: 27 UFs, cliques, recortes, modelo, falta de dados e cálculo de execução OK');
