@@ -28,7 +28,7 @@ const STATUS={
  paused:{label:"Pausada",cls:"paused"},
  closed:{label:"Encerrada",cls:"closed"}
 };
-const st={geo:null,geoError:false,gettingGeo:false,week:"AVG",region:null,uf:null,data:null,ctx:null};
+const st={geo:null,geoError:false,gettingGeo:false,week:"AVG",region:null,uf:null,detailTab:"sectors",data:null,ctx:null};
 const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const nfmt=(n,decimal=0)=>Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:decimal,maximumFractionDigits:decimal});
 const today=()=>new Intl.DateTimeFormat("sv-SE",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
@@ -132,65 +132,83 @@ function projectMapTitle(){
  return st.uf?`${UF_NAMES[st.uf]} (${st.uf})`:st.region||"Brasil";
 }
 function geographyDetails(){
- const set=geographicSet(),m=analyze({ufSet:set});
- const pieces=st.uf?[st.uf]:st.region?REGIONS[st.region]:Object.keys(REGIONS);
- let selectors="";
- if(st.uf){
-   const t=m.teams.slice().sort((a,b)=>String(a.sector).localeCompare(String(b.sector),"pt-BR"));
-   const mapped=getMaps();
-   const personRows=t.map(v=>({team:v,who:activeInfo(v,mapped)})).filter(x=>x.who);
-   selectors=`<div class="hdMapSubhead">Profissionais vinculados <span>${personRows.length}</span></div>
-   <div class="hdMapPeople">${personRows.length?personRows.map(({team,who})=>`<button type="button" data-hd-person="${esc(who.person.id)}" class="hdMapPerson"><span class="hdPersonAvatar">${esc((who.person.full_name||"?").split(/\s+/).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</span><span><strong>${esc(who.person.full_name)}</strong><small>${esc(team.sector)} · ${esc(who.isUpcoming?"Início previsto":who.isActive?"Ativo cadastral":"Cadastro não confirmado")}</small></span><span class="hdChevron">›</span></button>`).join(""):'<p class="hdEmpty">Nenhum promotor vinculado aos setores deste estado.</p>'}</div>
-   <div class="hdMapSubhead">Setores e situação da vaga <span>${t.length}</span></div>
-   <div class="hdMapSectors">${t.length?t.map(team=>{
-    const status=mapped.statuses.get(team.sector)?.status;
-    return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector"><span><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf)}</small></span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Não informado")}</span></button>`;
-   }).join(""):'<p class="hdEmpty">Nenhum setor localizado neste estado.</p>'}</div>`;
- } else if(st.region){
-   selectors=`<div class="hdMapSubhead">Estados da região <span>${pieces.length}</span></div>
-   <div class="hdMapScopeList">${pieces.map(uf=>{const row=analyze({ufSet:new Set([uf])});return `<button type="button" data-hd-uf="${uf}"><b>${esc(uf)}</b><span>${esc(UF_NAMES[uf])}</span><small>${nfmt(row.stores)} lojas · ${nfmt(row.active)} ativos</small><span class="hdChevron">›</span></button>`;}).join("")}</div>`;
- } else {
-   selectors=`<div class="hdMapSubhead">Selecione uma região <span>5</span></div>
-   <div class="hdMapScopeList">${pieces.map(region=>{const row=analyze({ufSet:new Set(REGIONS[region])});return `<button type="button" data-hd-region="${esc(region)}"><b>${esc(region)}</b><span>${nfmt(row.stores)} lojas · ${nfmt(row.active)} ativos</span><span class="hdChevron">›</span></button>`;}).join("")}</div>`;
- }
- return `<div class="hdMapDetail"><div class="hdScopeTitle"><span class="hdEyebrow">RAIO-X DA OPERAÇÃO</span><h3>${esc(projectMapTitle())}</h3><p>${st.uf?esc(st.region||UF_REGIONS[st.uf]):st.region?"Região brasileira":"Visão nacional"}</p></div>
- <div class="hdScopeKpis"><div><strong>${nfmt(m.stores)}</strong><span>Lojas</span></div><div><strong>${nfmt(m.sectors)}</strong><span>Setores</span></div><div><strong>${nfmt(m.active)}</strong><span>Ativos*</span></div><div><strong>${nfmt(m.planned,st.week==="AVG"?1:0)}</strong><span>Visitas prev.</span></div></div>
- <div class="hdScopedModels">${GROUPS.map(g=>{const x=analyze({model:g.key,ufSet:set});return `<div><span class="hdGroupMark ${g.accent}"></span><span>${esc(g.name)}</span><b>${x.stores} lojas</b><small>${x.active} ativos</small></div>`;}).join("")}</div>
- <div class="hdScopeActions">${st.uf?'<button data-hd-clear-uf>← Voltar à região</button>':st.region?'<button data-hd-clear-region>← Ver Brasil</button>':""}</div>${selectors}</div>`;
+ const set=geographicSet(),m=analyze({ufSet:set}),maps=getMaps();
+ const mode=st.uf?"uf":st.region?"region":"national";
+ const rows=st.uf?m.teams.slice().sort((a,b)=>String(a.sector).localeCompare(String(b.sector,"pt-BR"))):[];
+ const personRows=rows.map(team=>({team,who:activeInfo(team,maps)})).filter(x=>x.who);
+ const peopleIds=new Set(personRows.map(x=>x.who.person.id));
+ const allAreas=mode==="region"?REGIONS[st.region]:Object.keys(REGIONS);
+ const areaList=mode==="national"?allAreas.map(region=>({title:region,id:region,level:"region",...analyze({ufSet:new Set(REGIONS[region])})})):
+ allAreas.map(uf=>({title:UF_NAMES[uf],id:uf,level:"uf",...analyze({ufSet:new Set([uf])})}));
+ const sectorList=rows.map(team=>{
+  const p=activeInfo(team,maps)?.person, status=maps.statuses.get(team.sector)?.status;
+  return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")}</small><small>${esc(p?.full_name||"Promotor não cadastrado")}</small></span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
+ }).join("");
+ const uniquePeople=[...new Map(personRows.map(v=>[v.who.person.id,v])).values()];
+ const peopleList=uniquePeople.map(({team,who})=>`<button type="button" data-hd-person="${esc(who.person.id)}" class="hdMapPerson hdDetailRow" aria-label="Abrir ficha de ${esc(who.person.full_name)}"><span class="hdPersonAvatar">${esc((who.person.full_name||"?").split(/\s+/).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</span><span class="hdDetailRowText"><b>${esc(who.person.full_name)}</b><small>${esc(team.sector)} · ${esc(who.isUpcoming?"Início previsto":who.isActive?"Ativo cadastral":"Status a confirmar")}</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`).join("");
+ const areaRows=areaList.map(v=>{
+  const count=v.sectors,active=v.active;
+  return `<button type="button" class="hdAreaRow hdDetailRow" data-hd-${v.level}="${esc(v.id)}" aria-label="${esc(v.title)}: ${nfmt(count)} setores"><span class="hdAreaAvatar">${v.level==="uf"?esc(v.id):"◉"}</span><span class="hdDetailRowText"><b>${esc(v.title)}</b><small>${nfmt(v.stores)} lojas · ${nfmt(active)} promotores ativos</small></span><span class="hdAreaSectorTotal"><b>${nfmt(count)}</b><small>setores</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`;
+ }).join("");
+ const sectionTitle=mode==="national"?"Explore por região":mode==="region"?"Estados desta região":st.detailTab==="people"?"Promotores vinculados":"Setores do estado";
+ let listHtml=mode==="uf"?(st.detailTab==="people"?peopleList:sectorList):areaRows;
+ const listSize=mode==="uf"?(st.detailTab==="people"?uniquePeople.length:rows.length):areaRows.length;
+ const tabHeader=mode==="uf"?`<div class="hdDetailTabs" role="group" aria-label="Detalhar por setores ou promotores"><button data-hd-tab="sectors" aria-pressed="${st.detailTab==="sectors"}" class="${st.detailTab==="sectors"?"active":""}">Setores <span>${nfmt(rows.length)}</span></button><button data-hd-tab="people" aria-pressed="${st.detailTab==="people"}" class="${st.detailTab==="people"?"active":""}">Promotores <span>${nfmt(peopleIds.size)}</span></button></div>`:"";
+ const empty=mode==="uf"?(st.detailTab==="people"?"Nenhum promotor vinculado neste estado.":"Nenhum setor programado neste estado."):"Nenhum resultado.";
+ return `<aside class="hdMapDetail" aria-label="Detalhes territoriais da operação">
+ <div class="hdDetailFixed">
+ <div class="hdScopeTitle"><span class="hdEyebrow">${mode==="national"?"PANORAMA NACIONAL":mode==="region"?"PANORAMA REGIONAL":"EXPLORAÇÃO POR UF"}</span><div class="hdScopeHeading"><h3>${esc(projectMapTitle())}</h3>${st.uf?'<button type="button" class="hdBackLink" data-hd-clear-uf>← Região</button>':st.region?'<button type="button" class="hdBackLink" data-hd-clear-region>← Brasil</button>':""}</div><p>${mode==="national"?"Clique em uma região ou estado no mapa":mode==="uf"?esc(UF_REGIONS[st.uf]):"Clique em um estado no mapa"}</p></div>
+ <div class="hdScopeKpis" aria-label="Indicadores do local selecionado"><div><strong>${nfmt(m.sectors)}</strong><span>Setores</span></div><div><strong>${nfmt(m.stores)}</strong><span>Lojas</span></div><div><strong>${nfmt(m.active)}</strong><span>Promotores ativos*</span></div><div><strong>${nfmt(m.planned,st.week==="AVG"?1:0)}</strong><span>Visitas previstas</span></div></div>
+ <div class="hdScopedModels" aria-label="Distribuição de equipes">${GROUPS.map(g=>{const n=analyze({model:g.key,ufSet:set});return `<div><span class="hdGroupMark ${g.accent}"></span><span>${esc(g.name)}</span><b>${n.sectors} setores</b></div>`;}).join("")}</div>
+ ${tabHeader}
+ <div class="hdMapSubhead"><span>${esc(sectionTitle)}</span><span>${nfmt(listSize)}</span></div>
+ </div>
+ <div class="hdDetailScroll" tabindex="0" role="region" aria-label="${esc(sectionTitle)}; lista rolável"><div class="hdMapDetailList">${listHtml||`<p class="hdEmpty">${empty}</p>`}</div></div>
+ <div class="hdDetailFooter">${mode==="uf"?"Selecione uma linha para abrir a ficha completa e seu histórico.":"Selecione uma área para ver seus setores e responsáveis."}</div>
+ </aside>`;
 }
 function coordinates(geometry){
  const pol=geometry.type==="Polygon"?[geometry.coordinates]:geometry.coordinates;
  return pol;
 }
 function geoPaths(){
- if(!st.geo)return `<div class="hdMapLoading">${st.geoError?"Não foi possível abrir a malha. Use a lista de regiões e estados ao lado.":"Carregando mapa do Brasil…"}</div>`;
+ if(!st.geo)return `<div class="hdMapLoading">${st.geoError?"Não foi possível abrir a malha. Explore as regiões e estados na lista ao lado.":"Carregando os 27 estados brasileiros…"}</div>`;
  const all=st.geo.features;
- let flat=[];for(const f of all)for(const polygon of coordinates(f.geometry))for(const ring of polygon)for(const [lon,lat] of ring)if(Number.isFinite(lon)&&Number.isFinite(lat))flat.push([lon,lat]);
+ const flat=all.flatMap(f=>coordinates(f.geometry).flatMap(poly=>poly.flat()));
  const minX=Math.min(...flat.map(p=>p[0])),maxX=Math.max(...flat.map(p=>p[0])),minY=Math.min(...flat.map(p=>p[1])),maxY=Math.max(...flat.map(p=>p[1]));
  const w=600,h=620,pad=30,scale=Math.min((w-2*pad)/(maxX-minX),(h-2*pad)/(maxY-minY));
  const x=lng=>pad+(lng-minX)*scale+(w-2*pad-(maxX-minX)*scale)/2;
  const y=lat=>pad+(maxY-lat)*scale+(h-2*pad-(maxY-minY)*scale)/2;
- const paths=all.map(f=>{
+ const labels=[];
+ const callouts={
+   RN:{x:600,y:175},PB:{x:600,y:202},PE:{x:600,y:229},AL:{x:600,y:256},SE:{x:600,y:283},
+   DF:{x:393,y:310},ES:{x:531,y:383},RJ:{x:526,y:431}
+ };
+ const shapes=all.map(f=>{
    const uf=f.properties.sigla;if(!UF_REGIONS[uf])return "";
-   const polygons=coordinates(f.geometry);
-   const geoPoint=polygons.flatMap(poly=>poly.flat());
-   const xs=geoPoint.map(p=>x(p[0])),ys=geoPoint.map(p=>y(p[1]));
+   const polygons=coordinates(f.geometry),coordinatesFlat=polygons.flatMap(poly=>poly.flat());
+   const xs=coordinatesFlat.map(p=>x(p[0])),ys=coordinatesFlat.map(p=>y(p[1]));
+   const anchorX=(Math.min(...xs)+Math.max(...xs))/2,anchorY=(Math.min(...ys)+Math.max(...ys))/2;
    const d=polygons.map(poly=>poly.map(ring=>ring.map(([lon,lat],i)=>`${i===0?"M":"L"}${x(lon).toFixed(1)} ${y(lat).toFixed(1)}`).join(" ")+" Z").join(" ")).join(" ");
-   const count=analyze({ufSet:new Set([uf])}).stores;
-   const region=UF_REGIONS[uf];
-   const selected=st.uf===uf?"selected":!st.uf&&st.region===region?"regionSelected":"";
-   const contextDim=st.region&&region!==st.region&&!st.uf?"dimmed":"";
-   const density=count===0?"zero":count<8?"low":count<30?"medium":"high";
-   const labelX=(Math.min(...xs)+Math.max(...xs))/2,labelY=(Math.min(...ys)+Math.max(...ys))/2;
-   const wide=(Math.max(...xs)-Math.min(...xs))>21,high=(Math.max(...ys)-Math.min(...ys))>18;
-   return `<path class="hdMapUF ${selected} ${contextDim} ${density}" d="${d}" data-hd-map-uf="${uf}" role="button" tabindex="0" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(count)} lojas"><title>${esc(UF_NAMES[uf])} · ${nfmt(count)} lojas · clique para detalhar</title></path>${wide&&high?`<text class="hdMapUFLabel" x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">${uf}</text>`:""}`;
+   const count=analyze({ufSet:new Set([uf])}).sectors;
+   const region=UF_REGIONS[uf],selected=st.uf===uf?"selected":!st.uf&&st.region===region?"regionSelected":"";
+   const dimmed=st.region&&region!==st.region?"dimmed":"";
+   const density=count===0?"zero":count<5?"low":count<20?"medium":"high";
+   const outside=!!callouts[uf],px=outside?callouts[uf].x:anchorX,py=outside?callouts[uf].y:anchorY;
+   const digits=String(count).length,badgeW=37+digits*7,badgeH=21;
+   const badgeX=px-badgeW/2, badgeY=py-badgeH/2;
+   const leader=outside?`<path class="hdMapLeader" d="M ${anchorX.toFixed(1)} ${anchorY.toFixed(1)} L ${px.toFixed(1)} ${py.toFixed(1)}" />`:"";
+   labels.push(`${leader}<g class="hdMapLabel ${outside?"hdMapLabelOutside":""} ${st.uf===uf?"selected":""} ${count===0?"empty":""}" data-hd-map-uf="${uf}" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(count)} setores" role="button" tabindex="0"><title>${esc(UF_NAMES[uf])} · ${nfmt(count)} setores · clique para detalhar</title><rect x="${badgeX.toFixed(1)}" y="${badgeY.toFixed(1)}" width="${badgeW}" height="${badgeH}" rx="7"/><text x="${px.toFixed(1)}" y="${(py+3.5).toFixed(1)}" text-anchor="middle">${uf} <tspan class="hdMapLabelNum">${count}</tspan></text></g>`);
+   return `<path class="hdMapUF ${selected} ${dimmed} ${density}" d="${d}" data-hd-map-uf="${uf}" role="button" tabindex="0" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(count)} setores"><title>${esc(UF_NAMES[uf])} · ${nfmt(count)} setores · clique para detalhar</title></path>`;
  }).join("");
- return `<svg id="hdBrazilSVG" class="hdBrazilSVG" viewBox="0 0 600 620" role="group" aria-label="Mapa interativo do Brasil por estados">${paths}</svg>`;
+ return `<svg id="hdBrazilSVG" class="hdBrazilSVG" viewBox="0 0 690 620" role="group" aria-label="Mapa interativo do Brasil com quantidade de setores por estado">${shapes}<g class="hdMapLabels">${labels.join("")}</g></svg>`;
 }
 function brazilMap(){
- return `<section class="hdCard hdMapCard"><div class="hdCardHead"><div><span class="hdEyebrow">GEOGRAFIA DA OPERAÇÃO</span><h2>Mapa interativo do Brasil</h2><p>Selecione uma região ou clique no estado para explorar lojas, setores, visitas e promotores.</p></div><span class="hdHint">27 UFs · limites do IBGE</span></div>
- <div class="hdRegionChips"><button data-hd-country class="${!st.region&&!st.uf?"selected":""}">Brasil</button>${Object.keys(REGIONS).map(r=>`<button data-hd-region="${esc(r)}" class="${st.region===r?"selected":""}">${esc(r)}</button>`).join("")}</div>
- <div class="hdMapLayout"><div class="hdMapFigure"><div class="hdMapCanvas">${geoPaths()}</div><div class="hdMapLegend"><span><i class="high"></i> Mais lojas</span><span><i class="medium"></i> Média</span><span><i class="low"></i> Menos lojas</span><span><i class="zero"></i> Sem loja</span></div><small class="hdGeoCredit">Malhas territoriais: IBGE · GeoJSON CC0 · cores refletem quantidade de lojas no cenário</small></div>${geographyDetails()}</div></section>`;
+ return `<section class="hdCard hdMapCard" aria-labelledby="hdMapTitle">
+ <div class="hdCardHead hdMapCardHeader"><div><span class="hdEyebrow">01 · PRIMEIRO, ONDE ESTAMOS?</span><h2 id="hdMapTitle">Mapa da operação</h2><p>Clique em uma região ou estado. O número em cada marcador indica <b>setores programados</b>, não funcionários contratados.</p></div><div class="hdMapKey"><span class="hdMapKeyDot"></span><span><b>27 estados / DF</b><small>Explore por território</small></span></div></div>
+ <div class="hdRegionChips" role="group" aria-label="Selecionar região brasileira"><button data-hd-country aria-pressed="${!st.region&&!st.uf}" class="${!st.region&&!st.uf?"selected":""}">Brasil</button>${Object.keys(REGIONS).map(r=>`<button data-hd-region="${esc(r)}" aria-pressed="${st.region===r&&!st.uf}" class="${st.region===r?"selected":""}">${esc(r)}</button>`).join("")}</div>
+ <div class="hdMapLayout"><div class="hdMapFigure"><div class="hdMapCanvas">${geoPaths()}</div><div class="hdMapLegend"><span><i class="high"></i> Mais setores</span><span><i class="medium"></i> Intermediário</span><span><i class="low"></i> Poucos</span><span><i class="zero"></i> Sem setor</span></div><small class="hdGeoCredit">Mapa baseado em limites estaduais do IBGE · os rótulos mostram o total de setores no filtro atual</small></div>${geographyDetails()}</div>
+ </section>`;
 }
 function render({scenario,contract,stores,teams,saved}){
  st.ctx={scenario,contract,stores,teams,saved};
@@ -199,6 +217,8 @@ function render({scenario,contract,stores,teams,saved}){
  const result= x.actual.n===null?'—':nfmt(x.actual.n,st.week==="AVG"?1:0);
  return `<div class="hdDashboard"><div class="hdDashHero"><div><span>PAINEL NACIONAL · GENIALE / HARALD</span><h1>Visão geral da operação</h1><p>${complete?"Operação completa · Start 1 + Start 2":"Etapa inicial · Start 1"} · números reais do planejamento e cadastros verificados.</p></div><button type="button" data-hd-refresh class="hdRefresh">↻ Atualizar painel</button></div>
  <div class="hdToolbar"><div><span class="hdEyebrow">PERÍODO DO ROTEIRO</span><div class="hdWeekTabs">${[["AVG","Média semanal"],["1","Semana 1"],["2","Semana 2"]].map(([id,label])=>`<button data-hd-week="${id}" class="${st.week===id?"active":""}" aria-pressed="${st.week===id}">${label}</button>`).join("")}</div></div><p>As duas semanas são alternativas do ciclo de programação. A média semanal não soma duas semanas como se fossem um único período.</p></div>
+ ${brazilMap()}
+ <div class="hdSectionHeading"><div><span class="hdEyebrow">02 · O QUE OS DADOS MOSTRAM?</span><h2>Indicadores da operação</h2></div><p>Planejamento, promotores cadastrados e execução.</p></div>
  <div class="hdTopMetrics">
  ${summaryMetric("Lojas planejadas",nfmt(x.stores),"PDVs distintos no cenário","stores")}
  ${summaryMetric("Setores / vagas",nfmt(x.sectors),"Roteiros permanentes no cenário","sectors")}
@@ -206,19 +226,20 @@ function render({scenario,contract,stores,teams,saved}){
  ${summaryMetric("Visitas programadas",nfmt(x.planned,st.week==="AVG"?1:0),"Total de visitas por semana do ciclo","visits")}
  ${summaryMetric("Média prevista / ativo",x.plannedAverage!==null?nfmt(x.plannedAverage,1):"—","Só setores dos promotores ativos*","average")}
  ${summaryMetric("Média realizada / ativo",x.actualAverage!==null?nfmt(x.actualAverage,1):"—",x.actual.n===null?"Aguardando base de execução":x.actual.mode==="partial"?"Dados parciais":"Com base de execução completa","realized")}
- </div>${typeTable()}${statusCard()}${brazilMap()}
+ </div>${typeTable()}${statusCard()}
  <div class="hdBottomNote"><b>Definições:</b> Fulltime e Parttime são os dois grupos operacionais CLT; Horistas são separados. Visitas programadas vêm do roteiro de cada loja. “Realizado” só aparecerá após importação das visitas e terá indicação de dados parciais quando aplicável. O status da vaga não é inferido pela existência de um promotor.</div></div>`;
 }
 function setRegion(r){
  if(!REGIONS[r])return;
- st.region=r;st.uf=null;refresh();
+ st.region=r;st.uf=null;st.detailTab="sectors";refresh();
 }
 function setUf(uf){
  if(!UF_REGIONS[uf])return;
- st.uf=uf;st.region=UF_REGIONS[uf];refresh();
+ st.uf=uf;st.region=UF_REGIONS[uf];st.detailTab="sectors";refresh();
 }
 function refresh(){window.haraldApp?.refresh?.();}
 function handleAction(el){
+ if(el.hasAttribute("data-hd-tab")){if(["sectors","people"].includes(el.dataset.hdTab)){st.detailTab=el.dataset.hdTab;refresh();}return true;}
  if(el.hasAttribute("data-hd-week")){const v=el.dataset.hdWeek;if(["AVG","1","2"].includes(v)){st.week=v;refresh();}return true;}
  if(el.hasAttribute("data-hd-region")){setRegion(el.dataset.hdRegion);return true;}
  if(el.hasAttribute("data-hd-uf")){setUf(el.dataset.hdUf);return true;}
