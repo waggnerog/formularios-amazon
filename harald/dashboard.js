@@ -95,9 +95,10 @@ function analyze({model=null,ufSet=null,activeOnly=false}={}){
  };
  const planned=selectCount(days),plannedAssigned=selectCount(days.filter(x=>activeTeams.has(x.sector_code)));
  const actual=availableActuals(ctx.scenario,st.week,sectors,ufSet,maps);
+ const assignedActual=availableActuals(ctx.scenario,st.week,activeTeams,ufSet,maps);
  const missing=teams.filter(t=>!maps.statuses.has(t.sector)).length;
  const byStatus=Object.fromEntries(Object.keys(STATUS).map(k=>[k,teams.filter(t=>maps.statuses.get(t.sector)?.status===k).length]));
- return {sectors:teams.length,stores:countDistinctStores(storeRows),links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:actual.n!==null&&peopleMap.size?actual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
+ return {sectors:teams.length,stores:countDistinctStores(storeRows),links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
 }
 function summaryMetric(label,value,help,accent=""){
  return `<article class="hdTopMetric ${accent}"><div class="hdTopMetricLabel">${esc(label)}</div><strong>${esc(value)}</strong><small>${esc(help)}</small></article>`;
@@ -113,7 +114,7 @@ function typeTable(){
  ${GROUPS.map(m=>{const x=analyze({model:m.key});return `<tr><th><span class="hdGroupMark ${m.accent}"></span>${esc(m.name)}</th><td>${nfmt(x.sectors)}</td><td>${nfmt(x.stores)}</td><td><b>${nfmt(x.active)}</b> <small>/${nfmt(x.links)} vinculados</small></td><td><strong>${nfmt(x.planned,st.week==="AVG"?1:0)}</strong></td><td>${x.plannedAverage!==null?nfmt(x.plannedAverage,1):'<span class="hdNoValue">—</span>'}</td><td>${actualLabel(x.actual)}</td><td>${x.actualAverage!==null?`${nfmt(x.actualAverage,1)}${x.actual.mode==="partial"?'<small> parcial</small>':""}`:'<span class="hdNoValue">—</span>'}</td></tr>`}).join("")}
  <tr class="hdTableTotal"><th>Projeto</th><td>${nfmt(all.sectors)}</td><td>${nfmt(all.stores)}</td><td><b>${nfmt(all.active)}</b> <small>/${nfmt(all.links)} vinculados</small></td><td><strong>${nfmt(all.planned,st.week==="AVG"?1:0)}</strong></td><td>${all.plannedAverage!==null?nfmt(all.plannedAverage,1):"—"}</td><td>${actualLabel(all.actual)}</td><td>${all.actualAverage!==null?nfmt(all.actualAverage,1):"—"}</td></tr>
  </tbody></table></div>
- <p class="hdTableFoot">*Ativos = cadastro com status ATIVO e data de início atingida, sem confirmação de presença em campo. A média programada por ativo considera <b>somente as visitas dos setores desses profissionais</b>. Setores ainda sem cadastro entram no total planejado, mas não na média por promotor. As duas semanas formam um ciclo de planejamento, não duas operações para somar.</p></section>`;
+ <p class="hdTableFoot">*Ativos = cadastro com status ATIVO e data de início atingida, sem confirmação de presença em campo. As médias por ativo (programada e realizada) consideram <b>somente as visitas dos setores desses profissionais</b>. Setores ainda sem cadastro entram no total planejado, mas não na média por promotor. As duas semanas formam um ciclo de planejamento, não duas operações para somar.</p></section>`;
 }
 function statusCard(){
  const x=analyze();
