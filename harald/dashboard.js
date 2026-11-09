@@ -121,7 +121,7 @@ function statusCard(){
  ["active","Ativa"],["open","Vaga aberta"],["replacement","Em substituição"],["onboarding","Em admissão"],["paused","Pausada"],["closed","Encerrada"]
  ];
  return `<section class="hdCard"><div class="hdCardHead"><div><span class="hdEyebrow">SITUAÇÃO OFICIAL DAS VAGAS</span><h2>Status dos setores</h2></div><span class="hdFlag">Aguardando arquivo de status</span></div>
- <div class="hdStatusTiles">${cards.map(([k,label])=>`<div class="hdStatusTile"><span class="hdStatusDot ${k}"></span><span>${label}</span><strong>${x.statuses[k]||0}</strong></div>`).join("")}<div class="hdStatusTile unknown"><span class="hdStatusDot unknown"></span><span>Não informado</span><strong>${nfmt(x.missing)}</strong></div></div>
+ <div class="hdStatusTiles">${cards.map(([k,label])=>`<div class="hdStatusTile"><span class="hdStatusDot ${k}"></span><span>${label}</span><strong>${x.missing===x.sectors?"—":nfmt(x.statuses[k]||0)}</strong></div>`).join("")}<div class="hdStatusTile unknown"><span class="hdStatusDot unknown"></span><span>Não informado</span><strong>${nfmt(x.missing)}</strong></div></div>
  <div class="hdNotice"><b>Importante:</b> um setor com promotor vinculado não é automaticamente classificado como “vaga ativa”. O status será preenchido quando recebermos a base oficial, mantendo o histórico por código de setor.</div></section>`;
 }
 function geographicSet(){
