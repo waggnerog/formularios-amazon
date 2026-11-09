@@ -1,0 +1,52 @@
+
+/* HARALD · padrão visual para cadastros em lista */
+.sectorListSummary{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:13px 0 12px}
+.sectorListSummary strong{font-size:13px;color:var(--ink,#27375a)}
+.sectorListSummary .summaryText{font-size:11px;color:var(--muted,#78839d)}
+.contactTallies{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.contactTally{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid #e5eaf5;background:#fff;color:#66718e}
+.contactTally.yes{background:#e8f7f1;border-color:#cce9dd;color:#217962}
+.contactTally.no{background:#fff3e6;border-color:#f3d9ad;color:#986313}
+.sectorListHead{display:grid;grid-template-columns:minmax(140px,1.15fr) minmax(110px,1.1fr) minmax(170px,1.5fr) minmax(112px,1fr) minmax(96px,.9fr) 28px;gap:16px;padding:0 18px 11px;color:#8995ac;font-size:10px;font-weight:900;letter-spacing:.6px;text-transform:uppercase}
+.sectorList{display:flex;flex-direction:column;gap:8px}
+.sectorListRow{appearance:none;display:grid;grid-template-columns:minmax(140px,1.15fr) minmax(110px,1.1fr) minmax(170px,1.5fr) minmax(112px,1fr) minmax(96px,.9fr) 28px;gap:16px;align-items:center;text-align:left;width:100%;padding:17px 18px;border:1px solid #e4e9f3;border-left:4px solid #cbd1ed;border-radius:14px;background:#fff;color:var(--text,#263657);font:inherit;box-shadow:0 5px 15px rgba(36,48,94,.045);cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+.sectorListRow:hover{border-color:#a9afe9;border-left-color:#6472da;box-shadow:0 9px 23px rgba(70,84,150,.11);transform:translateY(-1px)}
+.sectorListRow:focus-visible{outline:3px solid #666bd8;outline-offset:2px}
+.sectorListRow.missingContact{border-left-color:#e6b35a}
+.sectorListRow .sectorCell{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sectorListRow .sectorCell strong{color:#253b7b;font-size:14px;letter-spacing:.1px;white-space:nowrap}
+.sectorListRow .sectorCell small{color:#8e98ad;font-size:11px}
+.sectorListRow .sectorCity{display:flex;flex-direction:column;gap:6px;min-width:0;color:#5c6a88;font-size:12px;line-height:1.4}
+.sectorListRow .sectorCity strong{color:#4f5f81;font-size:12px;line-height:1.35}
+.sectorListRow .sectorCity small{color:#8994a9;font-size:11px}
+.sectorListRow .sectorPerson{display:flex;align-items:center;gap:10px;min-width:0}
+.sectorPerson .sectorAvatar{width:37px;height:37px;display:grid;place-items:center;flex:none;border-radius:11px;background:#efedff;color:#6763b6;font-size:12px;font-weight:850}
+.sectorPerson .sectorPersonName{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sectorPerson .sectorPersonName strong{font-size:12px;color:#374566;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sectorPerson .sectorPersonName small{font-size:11px;color:#929cae;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sectorListRow .sectorContact{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:0}
+.sectorContactBadge{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:7px 9px;background:#e6f6ef;color:#207c5d;font-size:11px;font-weight:850}
+.sectorContactBadge.missing{background:#fff3e4;color:#a56c1d}
+.sectorContact small{font-size:11px;color:#7888a2}
+.sectorLoad{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#78859e}
+.sectorLoad strong{font-size:14px;color:#34466f}
+.sectorChevron{justify-self:end;color:#6773af;font-size:24px;font-weight:500}
+.sectorListEmpty{padding:27px;border:1px dashed #dce3ef;border-radius:14px;background:white;color:#7885a0;text-align:center}
+.listFilterSelect{min-width:164px}
+@media(max-width:1130px){
+ .sectorListHead{display:none}
+ .sectorListRow{grid-template-columns:minmax(132px,.9fr) minmax(130px,1.2fr) minmax(150px,1.4fr) minmax(135px,1fr) 24px}
+ .sectorListRow .sectorCity{display:none}
+}
+@media(max-width:750px){
+ .sectorListRow{grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:15px;align-items:start}
+ .sectorListRow .sectorCell{grid-column:1;grid-row:1}
+ .sectorListRow .sectorPerson{grid-column:1;grid-row:2}
+ .sectorListRow .sectorContact{grid-column:1;grid-row:3}
+ .sectorListRow .sectorContact{flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px}
+ .sectorListRow .sectorLoad{grid-column:2;grid-row:2/4;align-self:center;text-align:right}
+ .sectorListRow .sectorChevron{grid-column:2;grid-row:1;align-self:center}
+ .sectorListRow .sectorPersonName strong{max-width:240px}
+ .sectorListSummary{align-items:start}
+ .listFilterSelect{min-width:0;max-width:100%}
+}
