@@ -134,7 +134,7 @@ function projectMapTitle(){
 function geographyDetails(){
  const set=geographicSet(),m=analyze({ufSet:set}),maps=getMaps();
  const mode=st.uf?"uf":st.region?"region":"national";
- const rows=st.uf?m.teams.slice().sort((a,b)=>String(a.sector).localeCompare(String(b.sector,"pt-BR"))):[];
+ const rows=st.uf?m.teams.slice().sort((a,b)=>String(a.sector).localeCompare(String(b.sector),"pt-BR")):[];
  const personRows=rows.map(team=>({team,who:activeInfo(team,maps)})).filter(x=>x.who);
  const peopleIds=new Set(personRows.map(x=>x.who.person.id));
  const allAreas=mode==="region"?REGIONS[st.region]:Object.keys(REGIONS);
@@ -205,7 +205,7 @@ function geoPaths(){
 }
 function brazilMap(){
  return `<section class="hdCard hdMapCard" aria-labelledby="hdMapTitle">
- <div class="hdCardHead hdMapCardHeader"><div><span class="hdEyebrow">01 · PRIMEIRO, ONDE ESTAMOS?</span><h2 id="hdMapTitle">Mapa da operação</h2><p>Clique em uma região ou estado. O número em cada marcador indica <b>setores programados</b>, não funcionários contratados.</p></div><div class="hdMapKey"><span class="hdMapKeyDot"></span><span><b>27 estados / DF</b><small>Explore por território</small></span></div></div>
+ <div class="hdCardHead hdMapCardHeader"><div><span class="hdEyebrow">01 · PRIMEIRO, ONDE ESTAMOS?</span><h2 id="hdMapTitle">Mapa da operação</h2><p>Clique em uma região ou estado. O número em cada marcador indica <b>setores programados</b>, não funcionários contratados.</p></div><div class="hdMapKey"><span class="hdMapKeyDot"></span><span><b>26 estados + DF</b><small>Explore por território</small></span></div></div>
  <div class="hdRegionChips" role="group" aria-label="Selecionar região brasileira"><button data-hd-country aria-pressed="${!st.region&&!st.uf}" class="${!st.region&&!st.uf?"selected":""}">Brasil</button>${Object.keys(REGIONS).map(r=>`<button data-hd-region="${esc(r)}" aria-pressed="${st.region===r&&!st.uf}" class="${st.region===r?"selected":""}">${esc(r)}</button>`).join("")}</div>
  <div class="hdMapLayout"><div class="hdMapFigure"><div class="hdMapCanvas">${geoPaths()}</div><div class="hdMapLegend"><span><i class="high"></i> Mais setores</span><span><i class="medium"></i> Intermediário</span><span><i class="low"></i> Poucos</span><span><i class="zero"></i> Sem setor</span></div><small class="hdGeoCredit">Mapa baseado em limites estaduais do IBGE · os rótulos mostram o total de setores no filtro atual</small></div>${geographyDetails()}</div>
  </section>`;
