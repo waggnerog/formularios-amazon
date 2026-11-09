@@ -129,3 +129,127 @@
  .hdMapScopeList button{flex-wrap:wrap}
  .hdMapScopeList button>small{order:5;width:100%;padding-left:44px}
 }
+
+/* ─────────────────────────────────────────────────────────────
+   V3.1 · Visão geográfica primeiro · UX para leitura rápida
+   O conteúdo lateral nunca determina a altura do mapa.
+   ───────────────────────────────────────────────────────────── */
+.hdDashboard{gap:18px}
+.hdDashHero{padding:22px 27px;border-radius:17px;background:linear-gradient(125deg,#1c2a59 4%,#435998 70%,#7267b0);box-shadow:0 10px 28px rgba(27,44,96,.12)}
+.hdDashHero h1{font-size:clamp(23px,2.5vw,31px);margin:6px 0}
+.hdDashHero p{font-size:12px}
+.hdToolbar{border:0;background:#f1f4fb;border-radius:13px;padding:11px 16px;box-shadow:none}
+.hdMapCard{padding:20px 22px 22px;border-color:#dfe7f3;box-shadow:0 9px 35px rgba(32,50,99,.07)}
+.hdMapCardHeader{align-items:center;margin-bottom:13px}
+.hdMapCardHeader h2{font-size:22px;letter-spacing:-.75px}
+.hdMapCardHeader p{max-width:610px;color:#74819c}
+.hdMapCardHeader p b{color:#405397}
+.hdMapKey{display:flex;gap:9px;align-items:center;border:1px solid #e4eaf4;background:#f7f9fc;padding:10px 12px;border-radius:12px;white-space:nowrap}
+.hdMapKeyDot{width:10px;height:10px;border-radius:50%;background:#edb074;box-shadow:0 0 0 4px #f9ecdc}
+.hdMapKey>span:last-child{display:flex;flex-direction:column;gap:3px}
+.hdMapKey b{color:#516390;font-size:11px}
+.hdMapKey small{color:#97a2b5;font-size:10px}
+.hdRegionChips{margin-bottom:13px;padding-bottom:13px;border-bottom:1px solid #edf0f6;gap:7px}
+.hdRegionChips button{border-radius:9px;background:#f4f6fb;padding:9px 13px;color:#65728d}
+.hdRegionChips button:focus-visible{outline:3px solid #666ac5;outline-offset:2px}
+.hdMapLayout{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(350px,.88fr);gap:18px;align-items:stretch;height:645px;min-height:0}
+.hdMapFigure{min-width:0;min-height:0;height:100%;padding:14px 9px 10px;border:1px solid #e7edf6;background:radial-gradient(circle at 33% 46%,#fbfdff 0%,#eef3fc 80%);border-radius:15px;display:flex;flex-direction:column;justify-content:space-between}
+.hdMapCanvas{min-width:0;min-height:0;width:100%;height:0;flex:1;display:flex;align-items:center;justify-content:center}
+.hdBrazilSVG{width:100%;height:100%;max-height:none;aspect-ratio:690/620;display:block}
+.hdMapUF{stroke:#fff;stroke-width:1.5}
+.hdMapUF.high{fill:#6c80c7}.hdMapUF.medium{fill:#94a3d8}.hdMapUF.low{fill:#bec9e5}.hdMapUF.zero{fill:#e1e6ef}
+.hdMapUF.regionSelected{fill:#8286d8}.hdMapUF.selected{fill:#e5a25e;stroke-width:2.7}
+.hdMapUF.dimmed{opacity:.38}
+.hdMapLeader{fill:none;stroke:#5d6e9c;stroke-width:1.3;stroke-dasharray:3 3;stroke-linecap:round;pointer-events:none;opacity:.85}
+.hdMapLabel{cursor:pointer;outline:none}
+.hdMapLabel rect{fill:#fff;stroke:#d6def2;stroke-width:1.1;filter:drop-shadow(0 2px 3px rgba(38,51,103,.14));transition:fill .12s,stroke .12s}
+.hdMapLabel text{font-family:Inter,Arial,sans-serif;fill:#43547e;font-size:11px;font-weight:800;letter-spacing:.1px;pointer-events:none}
+.hdMapLabelNum{fill:#5369b3;font-weight:900}
+.hdMapLabel.empty rect{fill:#f3f6fa;stroke:#e1e7f0}
+.hdMapLabel.empty text,.hdMapLabel.empty .hdMapLabelNum{fill:#8d9cb3}
+.hdMapLabel.selected rect,.hdMapLabel:hover rect,.hdMapLabel:focus rect{fill:#485aa7;stroke:#fff}
+.hdMapLabel.selected text,.hdMapLabel.selected .hdMapLabelNum,.hdMapLabel:hover text,.hdMapLabel:hover .hdMapLabelNum,.hdMapLabel:focus text,.hdMapLabel:focus .hdMapLabelNum{fill:#fff}
+.hdMapLabel:focus-visible rect{stroke:#e4ae6a;stroke-width:2.7}
+.hdMapLegend{gap:12px;margin:5px 0 4px}
+.hdMapLegend i.high{background:#6c80c7}.hdMapLegend i.medium{background:#94a3d8}.hdMapLegend i.low{background:#bec9e5}.hdMapLegend i.zero{background:#e1e6ef}
+.hdGeoCredit{line-height:1.4;margin-bottom:1px}
+.hdMapDetail{background:#fff;border:1px solid #dce5f3;border-radius:15px;display:flex;flex-direction:column;height:100%;max-height:100%;min-height:0;overflow:hidden;padding:0;box-shadow:0 4px 16px rgba(42,61,107,.035)}
+.hdDetailFixed{flex:none;min-width:0;padding:18px 18px 0}
+.hdScopeHeading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hdScopeTitle h3{font-size:23px;letter-spacing:-.7px;margin:4px 0 3px}
+.hdBackLink{padding:7px 9px;background:#f0f3ff;color:#5464ac;border:1px solid #e3e6fa;border-radius:9px;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}
+.hdBackLink:hover{background:#e6eafd}
+.hdScopeKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:14px 0 8px}
+.hdScopeKpis>div{padding:10px 8px;background:#f4f6fc;border:1px solid #edf0f8;border-radius:9px}
+.hdScopeKpis strong{font-size:20px;letter-spacing:-.5px;white-space:nowrap}
+.hdScopeKpis span{display:block;line-height:1.25;font-size:9px;margin-top:4px}
+.hdScopedModels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.hdScopedModels>div{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid #edf0f7;border-radius:9px;background:#fcfdff;padding:8px;min-width:0}
+.hdScopedModels>div span:nth-child(2){flex:unset;display:block;color:#73829e;font-size:10px}
+.hdScopedModels>div b{font-size:11px;color:#455889}
+.hdScopedModels .hdGroupMark{width:7px;height:7px;margin:0}
+.hdDetailTabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;background:#f0f2f9;border-radius:10px;margin-top:14px;padding:4px}
+.hdDetailTabs button{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px;border:0;border-radius:8px;background:transparent;color:#7d8aa3;font-size:11px;font-weight:850;cursor:pointer}
+.hdDetailTabs button span{background:#e2e6f1;color:#67769a;border-radius:7px;padding:2px 7px}
+.hdDetailTabs button.active{background:white;color:#4a5dad;box-shadow:0 2px 9px rgba(35,54,101,.11)}
+.hdDetailTabs button.active span{background:#e8edff;color:#495fad}
+.hdMapSubhead{display:flex;align-items:center;justify-content:space-between;margin:14px 0 9px;font-size:12px;color:#41547b}
+.hdMapSubhead>span:nth-child(2){background:#edf1fc;border-radius:6px;padding:4px 7px}
+.hdDetailScroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 11px 8px 18px;scrollbar-gutter:stable;scrollbar-color:#c7d1ec #f9faff}
+.hdDetailScroll:focus-visible{outline:2px solid #7587c9;outline-offset:-2px}
+.hdMapDetailList{display:flex;flex-direction:column;gap:6px}
+.hdDetailRow{display:flex;align-items:center;gap:10px;padding:11px 10px;border:1px solid #e8edf5;background:#fff;border-radius:10px;min-width:0;flex:none;cursor:pointer;text-align:left;font:inherit;color:#48577a;transition:border-color .14s,background .14s}
+.hdDetailRow:hover,.hdDetailRow:focus-visible{background:#f5f7ff;border-color:#afb9e9;outline:none}
+.hdDetailRowText{flex:1;min-width:0}
+.hdDetailRowText b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3d4b77;font-size:12px}
+.hdDetailRowText small{display:block;color:#8490a7;font-size:10px;line-height:1.35;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hdRowIcon{width:34px;height:34px;display:grid;place-items:center;background:#edf0fe;color:#6572bd;border-radius:10px;font-weight:850}
+.hdAreaAvatar{flex:none;display:grid;place-items:center;background:#e8edff;color:#5467ad;width:36px;height:36px;border-radius:10px;font-size:11px;font-weight:860}
+.hdAreaSectorTotal{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:45px}
+.hdAreaSectorTotal b{font-size:15px;color:#485aa2}
+.hdAreaSectorTotal small{font-size:9px;color:#8b9ab4}
+.hdMapSector .hdSectorStatus{font-size:9px}
+.hdMapPerson .hdPersonAvatar{margin-right:0}
+.hdDetailFooter{flex:none;background:#fafbfe;border-top:1px solid #edf0f6;color:#9aa6b9;font-size:10px;line-height:1.4;padding:11px 18px}
+.hdSectionHeading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 2px -4px}
+.hdSectionHeading h2{font-size:19px;color:#2c3d6c;letter-spacing:-.5px;margin:4px 0}
+.hdSectionHeading p{font-size:11px;color:#8a96ac;margin:0}
+.hdTopMetrics{gap:12px}
+.hdTopMetric{box-shadow:0 5px 18px rgba(36,56,94,.04)}
+@media(max-width:1280px){
+ .hdMapLayout{grid-template-columns:minmax(0,1fr);height:auto}
+ .hdMapFigure{height:540px;max-height:540px}
+ .hdMapDetail{height:510px;max-height:510px}
+ .hdMapCanvas{height:0}
+ .hdScopeKpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .hdScopedModels{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ .hdDashboard{gap:13px}
+ .hdMapCard{padding:13px}
+ .hdMapCardHeader{align-items:flex-start}
+ .hdMapKey{display:none}
+ .hdMapFigure{height:420px;max-height:420px;padding:6px}
+ .hdMapDetail{height:480px;max-height:480px}
+ .hdRegionChips{gap:6px}
+ .hdRegionChips button{font-size:11px;padding:8px 10px}
+ .hdMapLegend{gap:8px;font-size:9px}
+ .hdGeoCredit{font-size:8px}
+ .hdDetailFixed{padding:14px 12px 0}
+ .hdDetailScroll{padding-left:12px;padding-right:8px}
+ .hdDetailFooter{padding:10px 12px}
+ .hdScopeKpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+ .hdScopeKpis>div{padding:8px 5px}
+ .hdScopeKpis strong{font-size:18px}
+ .hdScopeKpis span{font-size:8px}
+ .hdScopedModels>div{padding:6px}
+ .hdScopedModels>div span:nth-child(2){font-size:9px}
+ .hdSectionHeading{display:block}
+}
+@media(max-width:420px){
+ .hdMapFigure{height:350px;max-height:350px}
+ .hdMapCardHeader h2{font-size:19px}
+ .hdScopeTitle h3{font-size:20px}
+ .hdScopeKpis strong{font-size:16px}
+ .hdScopedModels>div b{font-size:10px}
+}
