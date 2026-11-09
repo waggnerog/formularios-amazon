@@ -262,3 +262,7 @@
 .hdDetailSearch:focus-within{border-color:#7b86d0;box-shadow:0 0 0 2px #e2e6ff}
 .hdDetailSearch small{color:#8796ad;font-size:9px;white-space:nowrap}
 .hdMapDetailList>.hdDetailRow[hidden],.hdMapDetailList>#hdScopeSearchEmpty[hidden]{display:none!important}
+
+/* Rótulo de setor: área de toque generosa e redução de ruído fora da região. */
+.hdMapLabel.dimmed{opacity:.36}
+.hdMapLabel .hdMapLabelHit,.hdMapLabel:hover .hdMapLabelHit,.hdMapLabel:focus .hdMapLabelHit,.hdMapLabel.selected .hdMapLabelHit{fill:transparent;stroke:none;filter:none}
