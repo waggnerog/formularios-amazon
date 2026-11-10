@@ -81,7 +81,7 @@ async function enter(){
 }
 
 async function loadData(){
- const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows,routeDays,sectorStatuses,actualVisits,actualImports]=await Promise.all([
+ const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports]=await Promise.all([
   getAll("harald_sectors","source_details"),
   getAll("harald_assignments","source_details"),
   getAll("harald_occupancies","id,scenario_code,sector_code,promoter_id,start_date,end_date,change_reason,source_name,created_at"),
@@ -90,7 +90,8 @@ async function loadData(){
   getAll("harald_timeline","id,target_type,target_key,scenario_code,event_type,description,metadata,created_by,created_at"),
   role==="admin"?getAll("harald_promoter_private","promoter_id,cpf,rg,birth_date,personal_email,personal_phone,street,street_number,complement,neighborhood,city,state_code,postal_code,salary,meal_allowance,food_allowance,first_due_day,second_due_day,first_due_reference,second_due_reference,source_fields") : Promise.resolve([]),
   getAll("harald_route_days","scenario_code,sector_code,store_key,cycle_week,weekday,scheduled"),
-  getAll("harald_sector_status","scenario_code,sector_code,status,effective_on,note,source_name"),
+  getAll("harald_sector_status","scenario_code,sector_code,status,source_status,effective_on,note,source_name,source_quality"),
+  getAll("harald_sector_candidates","scenario_code,sector_code,full_name,phone,source_status,documentation_status,source_name,active_source_record"),
   getAll("harald_visit_actuals","scenario_code,sector_code,store_key,cycle_week,visit_date,promoter_id,result"),
   getAll("harald_actual_imports","scenario_code,cycle_week,period_start,period_end,coverage_status,source_name,uploaded_at")
  ]);
@@ -128,7 +129,7 @@ async function loadData(){
  setStatus("☁ Dados sincronizados");
  if(role==="viewer"){document.body.classList.add("haraldViewer");setStatus("Somente leitura");}
  window.haraldPeople?.hydrate({persons,occupancies,notes,timeline,privateRows,teams:visibleTeams,stores:visibleStores,role,api});
- window.haraldDashboard?.hydrate({persons,occupancies,routeDays,sectorStatuses,actualVisits,actualImports,stores:visibleStores,teams:visibleTeams,role});
+ window.haraldDashboard?.hydrate({persons,occupancies,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports,stores:visibleStores,teams:visibleTeams,role});
  window.haraldApp?.refresh?.();
 }
 async function savePerson(sector,p){
