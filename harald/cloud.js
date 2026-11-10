@@ -5,6 +5,7 @@ const KEY="sb_publishable_6JplhqTzxWN9hTcIhQkcQw_glWN8TyJ";
 const SESSION_KEY="harald.auth.session.v1";
 let session=null, role=null, currentUser=null, isReady=false, timer=null, running=false, retry=false, baseline=null;
 let promoterIds={}, promoterNames={}, personKeyToId={}, legacySnapshot=null;
+let networkWatchTimer=null, lastNetworkRunId=0, networkWatchBusy=false;
 const $=s=>document.querySelector(s);
 function clone(x){return JSON.parse(JSON.stringify(x));}
 function esc(x){return String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -75,6 +76,7 @@ async function enter(){
     if(!memberships.length){role=null;pendingGate("Aguardando o administrador vincular sua conta à operação HARALD.");return;}
     role=memberships[0].role;
     await loadData();
+    await beginNetworkWatch();
   }catch(e){gateForm("login","Falha ao conectar: "+e.message);}
 }
 
@@ -175,7 +177,32 @@ async function importLocal(){
     setStatus("☁ Migração concluída");
   }catch(e){alert("Migração incompleta: "+e.message);$("#haraldImportLocal").disabled=false;}
 }
+
+async function latestNetworkRun(){
+ const rows=await api("harald_sync_runs?select=id,imported_at&order=id.desc&limit=1");
+ return rows?.[0]?.id||0;
+}
+async function beginNetworkWatch(){
+ if(role!=="admin"||networkWatchTimer)return;
+ try{lastNetworkRunId=await latestNetworkRun();}catch(err){console.warn("HARALD watcher:",err.message);return;}
+ networkWatchTimer=setInterval(async ()=>{
+   if(!session||role!=="admin"||!isReady||networkWatchBusy||document.visibilityState==="hidden"||running)return;
+   networkWatchBusy=true;
+   try{
+    const newest=await latestNetworkRun();
+    if(newest<=lastNetworkRunId)return;
+    if(document.querySelector("input:focus, textarea:focus, .hpModalShade, .hpDialog")){
+      setStatus("☁ Planilha atualizada · recarregue");
+      return;
+    }
+    await loadData();
+    lastNetworkRunId=newest;
+    setStatus("☁ Planilha sincronizada");
+   }catch(err){console.warn("HARALD network updates:",err.message);}finally{networkWatchBusy=false;}
+ },60000);
+}
 async function logout(){
+ if(networkWatchTimer){clearInterval(networkWatchTimer);networkWatchTimer=null;}lastNetworkRunId=0;
  try{if(session)await fetch(BASE+"/auth/v1/logout",{method:"POST",headers:{"apikey":KEY,"Authorization":"Bearer "+session.access_token}});}catch(e){}
  window.haraldPeople?.reset();
  clearSession();isReady=false;role=null;baseline=null;currentUser=null;
