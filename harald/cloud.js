@@ -55,10 +55,11 @@ async function api(path,{method="GET",body=null,prefer=null}={}){
   if(res.status===204)return null;
   const raw=await res.text();return raw?JSON.parse(raw):null;
 }
-async function getAll(name,fields="*"){
+async function getAll(name,fields="*",filter=""){
   let all=[],offset=0;
+  const extra=filter?"&"+filter:"";
   while(true){
-    const rows=await api(`${name}?select=${encodeURIComponent(fields)}&limit=1000&offset=${offset}`);
+    const rows=await api(`${name}?select=${encodeURIComponent(fields)}${extra}&limit=1000&offset=${offset}`);
     if(!Array.isArray(rows))throw Error("Resposta inesperada da base de dados.");
     all=all.concat(rows);if(rows.length<1000)break;
     offset+=rows.length;if(offset>100000)throw Error("Limite de importação excedido.");
@@ -82,7 +83,7 @@ async function enter(){
 
 async function loadData(){
  const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports]=await Promise.all([
-  getAll("harald_sectors","source_details"),
+  getAll("harald_sectors","source_details","is_current=eq.true"),
   getAll("harald_assignments","source_details"),
   getAll("harald_occupancies","id,scenario_code,sector_code,promoter_id,start_date,end_date,change_reason,source_name,created_at"),
   getAll("harald_promoters","id,full_name,whatsapp,registration_number,supervisor_name,supervisor_phone,status,hiring_type,profile,admission_date,scheduled_start_date,weekly_schedule,coordinator_name,geniale_manager,job_title,employment_source,transport_mode,vehicle_type,mob2,source_row"),
