@@ -22,13 +22,10 @@ const UF_NAMES={
  RR:"Roraima",SC:"Santa Catarina",SP:"São Paulo",SE:"Sergipe",TO:"Tocantins"
 };
 const STATUS={
- active:{label:"Ativa",cls:"active"},open:{label:"Vaga aberta",cls:"open"},
- replacement:{label:"Em substituição",cls:"replacement"},
+ active:{label:"Ativo",cls:"active"},
+ open:{label:"Vaga Open",cls:"open"},
  onboarding:{label:"Em admissão",cls:"onboarding"},
- negotiation:{label:"Em tratativa",cls:"negotiation"},
- filled:{label:"Fechada / definido",cls:"filled"},
- paused:{label:"Pausada",cls:"paused"},
- closed:{label:"Encerrada",cls:"closed"}
+ hired:{label:"Contratado",cls:"hired"}
 };
 const st={geo:null,geoError:false,gettingGeo:false,week:"AVG",region:null,uf:null,detailTab:"sectors",data:null,ctx:null};
 const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -125,12 +122,11 @@ function typeTable(){
 }
 function statusCard(){
  const x=analyze();
- const cards=[
- ["active","Ativa"],["open","Vaga aberta"],["replacement","Em substituição"],["onboarding","Em admissão"],["negotiation","Em tratativa"],["filled","Fechada / definido"],["paused","Pausada"],["closed","Encerrada"]
- ];
- return `<section class="hdCard"><div class="hdCardHead"><div><span class="hdEyebrow">SITUAÇÃO OFICIAL DAS VAGAS</span><h2>Status dos setores</h2></div><span class="hdFlag">Aguardando arquivo de status</span></div>
- <div class="hdStatusTiles">${cards.map(([k,label])=>`<div class="hdStatusTile"><span class="hdStatusDot ${k}"></span><span>${label}</span><strong>${x.missing===x.sectors?"—":nfmt(x.statuses[k]||0)}</strong></div>`).join("")}<div class="hdStatusTile unknown"><span class="hdStatusDot unknown"></span><span>Não informado</span><strong>${nfmt(x.missing)}</strong></div></div>
- <div class="hdNotice"><b>Importante:</b> um setor com promotor vinculado não é automaticamente classificado como “vaga ativa”. O status será preenchido quando recebermos a base oficial, mantendo o histórico por código de setor.</div></section>`;
+ const cards=[["active","Ativo"],["open","Vaga Open"],["onboarding","Em admissão"],["hired","Contratado"]];
+ const pending=x.missing;
+ return `<section class="hdCard"><div class="hdCardHead"><div><span class="hdEyebrow">STATUS DA VAGA / SETOR</span><h2>Situação das vagas</h2><p>Fonte oficial: Controle Operacional coluna E · Controle Horista coluna O.</p></div>${pending?`<span class="hdFlag">${pending} aguardando atualização da fonte</span>`:`<span class="hdFlag">Base de status completa</span>`}</div>
+ <div class="hdStatusTiles">${cards.map(([k,label])=>`<div class="hdStatusTile"><span class="hdStatusDot ${k}"></span><span>${label}</span><strong>${nfmt(x.statuses[k]||0)}</strong></div>`).join("")}</div>
+ ${pending?`<div class="hdNotice"><b>${pending} setor(es)</b> ainda possuem texto legado sem correspondência segura nos quatro status atuais. Eles ficarão fora da contagem até a planilha atualizada ser sincronizada.</div>`:`<div class="hdNotice"><b>Status normalizado:</b> Ativo, Vaga Open, Em admissão e Contratado. O status do promotor é tratado separadamente.</div>`}</section>`;
 }
 function geographicSet(){
  return st.uf?new Set([st.uf]):st.region?new Set(REGIONS[st.region]):null;
