@@ -25,6 +25,8 @@ const STATUS={
  active:{label:"Ativa",cls:"active"},open:{label:"Vaga aberta",cls:"open"},
  replacement:{label:"Em substituição",cls:"replacement"},
  onboarding:{label:"Em admissão",cls:"onboarding"},
+ negotiation:{label:"Em tratativa",cls:"negotiation"},
+ filled:{label:"Fechada / definido",cls:"filled"},
  paused:{label:"Pausada",cls:"paused"},
  closed:{label:"Encerrada",cls:"closed"}
 };
@@ -119,7 +121,7 @@ function typeTable(){
 function statusCard(){
  const x=analyze();
  const cards=[
- ["active","Ativa"],["open","Vaga aberta"],["replacement","Em substituição"],["onboarding","Em admissão"],["paused","Pausada"],["closed","Encerrada"]
+ ["active","Ativa"],["open","Vaga aberta"],["replacement","Em substituição"],["onboarding","Em admissão"],["negotiation","Em tratativa"],["filled","Fechada / definido"],["paused","Pausada"],["closed","Encerrada"]
  ];
  return `<section class="hdCard"><div class="hdCardHead"><div><span class="hdEyebrow">SITUAÇÃO OFICIAL DAS VAGAS</span><h2>Status dos setores</h2></div><span class="hdFlag">Aguardando arquivo de status</span></div>
  <div class="hdStatusTiles">${cards.map(([k,label])=>`<div class="hdStatusTile"><span class="hdStatusDot ${k}"></span><span>${label}</span><strong>${x.missing===x.sectors?"—":nfmt(x.statuses[k]||0)}</strong></div>`).join("")}<div class="hdStatusTile unknown"><span class="hdStatusDot unknown"></span><span>Não informado</span><strong>${nfmt(x.missing)}</strong></div></div>
