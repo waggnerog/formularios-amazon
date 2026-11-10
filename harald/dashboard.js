@@ -41,8 +41,13 @@ function getMaps(){
  const persons=new Map((d.persons||[]).map(p=>[p.id,p]));
  const assigns=new Map((d.occupancies||[]).filter(x=>x.scenario_code===sc&&!x.end_date).map(x=>[x.sector_code,x]));
  const statuses=new Map((d.sectorStatuses||[]).filter(x=>x.scenario_code===sc).map(x=>[x.sector_code,x]));
+ const candidates=new Map();
+ for(const c of (d.sectorCandidates||[]).filter(x=>x.scenario_code===sc&&x.active_source_record!==false)){
+  if(!candidates.has(c.sector_code))candidates.set(c.sector_code,[]);
+  candidates.get(c.sector_code).push(c);
+ }
  const stores=new Map((d.stores||[]).filter(x=>x.sc===sc).map(x=>[String(x.src),x]));
- return {persons,assigns,statuses,stores};
+ return {persons,assigns,statuses,candidates,stores};
 }
 function scopedTeams(ufSet=null){
  const c=st.ctx;if(!c)return[];
@@ -143,8 +148,10 @@ function geographyDetails(){
  const areaList=mode==="uf"?[]:mode==="national"?allAreas.map(region=>({title:region,id:region,level:"region",...analyze({ufSet:new Set(REGIONS[region])})})):
  allAreas.map(uf=>({title:UF_NAMES[uf],id:uf,level:"uf",...analyze({ufSet:new Set([uf])})}));
  const sectorList=rows.map(team=>{
-  const p=activeInfo(team,maps)?.person, status=maps.statuses.get(team.sector)?.status;
-  return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")}</small><small>${esc(p?.full_name||"Promotor não cadastrado")}</small></span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
+  const p=activeInfo(team,maps)?.person, statusRow=maps.statuses.get(team.sector),status=statusRow?.status,candidates=maps.candidates.get(team.sector)||[];
+  const candidate=candidates[0];
+  const owner=p?.full_name||(candidate?(status==="filled"?"Definido: ":"Em tratativa: ")+candidate.full_name:"Promotor não cadastrado");
+  return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")}</small><small>${esc(owner)}</small></span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
  }).join("");
  const uniquePeople=[...new Map(personRows.map(v=>[v.who.person.id,v])).values()];
  const peopleList=uniquePeople.map(({team,who})=>`<button type="button" data-hd-person="${esc(who.person.id)}" class="hdMapPerson hdDetailRow" aria-label="Abrir ficha de ${esc(who.person.full_name)}"><span class="hdPersonAvatar">${esc((who.person.full_name||"?").split(/\s+/).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</span><span class="hdDetailRowText"><b>${esc(who.person.full_name)}</b><small>${esc(team.sector)} · ${esc(who.isUpcoming?"Início previsto":who.isActive?"Ativo cadastral":"Status a confirmar")}</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`).join("");
