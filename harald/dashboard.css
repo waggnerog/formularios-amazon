@@ -306,7 +306,7 @@
 .hdFlowRow>b{font-size:11px;text-align:right;color:#4b5c7d}
 .hdFlowTrack{height:8px;border-radius:999px;background:#eef1f6;overflow:hidden}
 .hdFlowTrack i{display:block;height:100%;border-radius:inherit;min-width:0}
-.hdFlowTrack i.active{background:#4ca287}.hdFlowTrack i.hired{background:#5ea9b5}.hdFlowTrack i.onboarding{background:#8987d8}.hdFlowTrack i.open{background:#e2a45b}
+.hdFlowTrack i.active{background:#4ca287}.hdFlowTrack i.hired{background:#5ea9b5}.hdFlowTrack i.onboarding{background:#8987d8}.hdFlowTrack i.open{background:#e2a45b}.hdFlowTrack i.pending{background:#cbd3e2}
 .hdRegionBars{border:1px solid #e7ebf4;background:#fff;border-radius:15px;padding:16px 17px}
 .hdRegionBarsHead{display:flex;justify-content:space-between;align-items:end;gap:10px;margin-bottom:13px}
 .hdRegionBarsHead>div{display:flex;flex-direction:column;gap:3px}
@@ -335,3 +335,5 @@
  .hdRegionBarRow{grid-template-columns:85px minmax(0,1fr) 88px}
  .hdRegionValue{display:block;text-align:right}.hdRegionValue small{display:block;margin-top:2px}
 }
+
+.hdSourceStatic{cursor:default}.hdSourceStatic:hover{border-color:#dfe5f1;background:#f6f8fd}
