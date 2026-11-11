@@ -82,64 +82,155 @@ async function enter(){
 }
 
 async function loadData(){
- const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports,sourceContracts]=await Promise.all([
-  getAll("harald_sectors","source_details","is_current=eq.true"),
-  getAll("harald_assignments","source_details"),
-  getAll("harald_occupancies","id,scenario_code,sector_code,promoter_id,start_date,end_date,change_reason,source_name,created_at"),
-  getAll("harald_promoters","id,full_name,whatsapp,registration_number,supervisor_name,supervisor_phone,status,hiring_type,profile,admission_date,scheduled_start_date,weekly_schedule,coordinator_name,geniale_manager,job_title,employment_source,transport_mode,vehicle_type,mob2,source_row"),
+ const [sourceRows,sourceStates,notes,timeline,privateSource]=await Promise.all([
+  getAll("harald_horista_console_rows","*","is_current=eq.true"),
+  getAll("harald_horista_source_state","*","source_key=eq.controle_operacional_horistas"),
   getAll("harald_notes","target_type,target_key,scenario_code,note_body"),
   getAll("harald_timeline","id,target_type,target_key,scenario_code,event_type,description,metadata,created_by,created_at"),
-  role==="admin"?getAll("harald_promoter_private","promoter_id,cpf,rg,birth_date,personal_email,personal_phone,street,street_number,complement,neighborhood,city,state_code,postal_code,salary,meal_allowance,food_allowance,first_due_day,second_due_day,first_due_reference,second_due_reference,source_fields") : Promise.resolve([]),
-  getAll("harald_route_days","scenario_code,sector_code,store_key,cycle_week,weekday,scheduled"),
-  getAll("harald_sector_status","scenario_code,sector_code,status,source_status,effective_on,note,source_name,source_quality"),
-  getAll("harald_sector_candidates","scenario_code,sector_code,full_name,phone,source_status,documentation_status,source_name,active_source_record"),
-  getAll("harald_visit_actuals","scenario_code,sector_code,store_key,cycle_week,visit_date,promoter_id,result"),
-  getAll("harald_actual_imports","scenario_code,cycle_week,period_start,period_end,coverage_status,source_name,uploaded_at"),
-  role==="admin"?getAll("harald_source_contracts","source_key,display_name,expected_file_name,updated_at,notes"):Promise.resolve([])
+  role==="admin"?getAll("harald_horista_private_rows","*","is_current=eq.true"):Promise.resolve([])
  ]);
- if(!sectorRows.length||!assignmentRows.length)throw Error("A base de lojas está vazia. Contate o administrador.");
- const people=new Map(persons.map(p=>[p.id,p])),ps={};promoterIds={};promoterNames={};personKeyToId={};
- for(const link of occupancies.filter(x=>!x.end_date)){
-  const p=people.get(link.promoter_id);if(!p)continue;
-  ps[link.sector_code]={
-   name:p.full_name||"",phone:p.whatsapp||"",badge:p.registration_number||"",
-   supervisor:p.supervisor_name||"",supervisorPhone:p.supervisor_phone||"",
-   situation:p.status||"Não informado"
+ if(!sourceRows.length)throw Error("A fonte oficial Horista ainda não foi publicada. Atualize o arquivo Controle Operacional Horistas.xlsx.");
+ const sourceState=sourceStates[0]||null;
+ const norm=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-BR").trim();
+ const digits=v=>String(v||"").replace(/\D/g,"");
+ const personId=name=>"horista:"+norm(name).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+ const storeKey=row=>[row.sector_code,digits(row.cnpj),norm(row.store_name).replace(/[^a-z0-9]+/g,"-")].filter(Boolean).join("|");
+ const dayMap={SEG:1,TER:2,QUA:3,QUI:4,SEX:5,SAB:6,DOM:7};
+ const parseDays=value=>String(value||"").toLocaleUpperCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g,"").split(/[^A-Z]+/).map(x=>x==="QUAT"?"QUA":x).filter(x=>dayMap[x]);
+ const sourceStatusToPerson=rows=>{
+  const values=new Set(rows.map(x=>String(x.vacancy_status||"").toUpperCase()).filter(Boolean));
+  if(values.has("ATIVO"))return "ATIVO";
+  if(values.has("EM ADMISSÃO"))return "EM ADMISSÃO";
+  if(values.has("CONTRATADO"))return "CONTRATADO";
+  if(values.has("VAGA OPEN"))return "VINCULADO · REVISAR STATUS";
+  return "VINCULADO";
+ };
+ const sourceStatusToConsole=rows=>{
+  const vals=[...new Set(rows.map(x=>String(x.vacancy_status||"").toUpperCase()).filter(Boolean))];
+  if(vals.length!==1)return null;
+  return {ATIVO:"active","VAGA OPEN":"open","EM ADMISSÃO":"onboarding","CONTRATADO":"hired"}[vals[0]]||null;
+ };
+ const groups=new Map();
+ for(const row of sourceRows){
+  if(!groups.has(row.sector_code))groups.set(row.sector_code,[]);
+  groups.get(row.sector_code).push(row);
+ }
+ const visibleStores=sourceRows.map(row=>{
+  const id=storeKey(row)||("HCO|"+row.source_row);
+  return {
+   id,src:id,sc:"C2",sector:row.sector_code,n:row.store_name||"Loja não informada",city:row.city||"",uf:row.state_code||"",
+   c:row.cnpj||"",b:row.banner||"",end:row.store_address||"",pri:row.priority||"",district:row.store_neighborhood||"",
+   cep:row.store_postal_code||"",visitH:Number(row.service_time||0),visits1:Number(row.weekly_visits||0),model:"HORISTA",
+   hours:Number(row.store_weekly_hours||0),teamHours:Number(row.team_weekly_hours||0),w1:row.days_week1||"",w2:row.days_week2||"",
+   region:row.region||"",modal:row.modal||"",lat:row.received_lat??row.centroid_lat??"",lon:row.received_lon??row.centroid_lon??"",
+   rev:row.reviewed||"Controle Operacional",phase:"HORISTAS",channel:"",legal:"",charge:1,
+   weekKm:Number(row.km_store_week||0),rateAvg:Number(row.avg_displacement||0),
+   situation:row.registration_pending||"",sourceObs:row.registration_pending||"",
+   sourceStatus:row.vacancy_status||"",routeStatus:row.route_status||"",promoterName:row.promoter_name||""
   };
+ });
+ const visibleTeams=[...groups.entries()].map(([sector,rows])=>{
+  const first=rows[0],cities=[...new Set(rows.map(x=>x.city).filter(Boolean))].join(", ");
+  const teamHours=Number(rows.find(x=>x.team_weekly_hours!=null)?.team_weekly_hours||0);
+  const reserve=Number(rows.find(x=>x.travel_reserve_hours!=null)?.travel_reserve_hours||0);
+  const capacity=Number(rows.find(x=>x.capacity_weekly_hours!=null)?.capacity_weekly_hours||0);
+  return {
+   sc:"C2",sector,model:"HORISTA",uf:first.state_code||"",cities,pdvs:rows.length,
+   visits:rows.reduce((a,x)=>a+Number(x.weekly_visits||0),0),hours:teamHours||rows.reduce((a,x)=>a+Number(x.store_weekly_hours||0),0),
+   reserve,capacity,region:first.region||"",modal:first.modal||"",km1:Number(first.km_week1||0),km2:Number(first.km_week2||0),
+   kmAvg:Number(first.km_month_avg||0),kmMonth:Number(first.km_month_avg||0),kmMaxDay:Number(first.km_max_day||0),
+   totalPeakH:capacity||teamHours+reserve,situation:"Fonte oficial · Controle Operacional",
+   sourceStatus:sourceStatusToConsole(rows),sourceStatusRaw:[...new Set(rows.map(x=>x.vacancy_status_raw).filter(Boolean))].join(" / "),
+   hasPromoter:rows.some(x=>String(x.promoter_name||"").trim())
+  };
+ });
+ const personGroups=new Map();
+ for(const row of sourceRows){
+  const name=String(row.promoter_name||"").trim();if(!name)continue;
+  const id=personId(name);if(!personGroups.has(id))personGroups.set(id,[]);
+  personGroups.get(id).push(row);
+ }
+ const persons=[...personGroups.entries()].map(([id,rows])=>{
+  const first=rows.find(x=>x.phone||x.email)||rows[0];
+  return {
+   id,full_name:first.promoter_name,whatsapp:first.phone||"",registration_number:null,supervisor_name:null,supervisor_phone:null,
+   status:sourceStatusToPerson(rows),hiring_type:"HORISTA",profile:"HORISTA",admission_date:null,scheduled_start_date:null,
+   weekly_schedule:null,coordinator_name:null,geniale_manager:null,job_title:"Promotor Horista",
+   employment_source:"Controle Operacional Horistas.xlsx",transport_mode:first.modal||null,vehicle_type:null,mob2:null,source_row:first.source_row
+  };
+ });
+ const occupancies=[];
+ for(const [sector,rows] of groups){
+  const names=[...new Set(rows.map(x=>String(x.promoter_name||"").trim()).filter(Boolean))];
+  if(!names.length)continue;
+  occupancies.push({
+   id:"source-occ:"+sector,scenario_code:"C2",sector_code:sector,promoter_id:personId(names[0]),
+   start_date:null,end_date:null,change_reason:names.length>1?"Mais de um promotor informado na fonte":"Vínculo informado na fonte oficial",
+   source_name:"CONTROLE_OPERACIONAL_HORISTAS",created_at:sourceState?.processed_at||null
+  });
+ }
+ const sectorStatuses=[];
+ for(const [sector,rows] of groups){
+  const normalized=sourceStatusToConsole(rows);
+  const raw=[...new Set(rows.map(x=>x.vacancy_status_raw).filter(Boolean))];
+  if(!normalized&&!raw.length)continue;
+  sectorStatuses.push({
+   scenario_code:"C2",sector_code:sector,status:normalized,source_status:raw.join(" / "),effective_on:null,note:null,
+   source_name:"CONTROLE_OPERACIONAL_HORISTAS",source_quality:raw.length>1?"mixed_rows":"source_sheet"
+  });
+ }
+ const routeDays=[];
+ for(const row of sourceRows){
+  const key=storeKey(row)||("HCO|"+row.source_row);
+  for(const [cycle,value] of [[1,row.days_week1],[2,row.days_week2]]){
+   for(const d of parseDays(value))routeDays.push({scenario_code:"C2",sector_code:row.sector_code,store_key:key,cycle_week:cycle,weekday:dayMap[d],scheduled:true});
+  }
+ }
+ const privateByName=new Map(privateSource.filter(x=>x.promoter_name).map(x=>[norm(x.promoter_name),x]));
+ const privateRows=persons.map(p=>{
+  const pub=personGroups.get(p.id)?.find(x=>x.email||x.promoter_city||x.promoter_state)||personGroups.get(p.id)?.[0]||{};
+  const priv=privateByName.get(norm(p.full_name))||{};
+  return {
+   promoter_id:p.id,cpf:priv.cpf||null,rg:priv.rg||null,birth_date:priv.birth_date||null,personal_email:pub.email||null,
+   personal_phone:pub.phone||null,street:priv.promoter_address||null,street_number:priv.promoter_address_number||null,
+   complement:null,neighborhood:priv.promoter_neighborhood||null,city:pub.promoter_city||null,state_code:pub.promoter_state||null,
+   postal_code:priv.promoter_postal_code||null,salary:null,meal_allowance:null,food_allowance:null,first_due_day:null,second_due_day:null,
+   first_due_reference:null,second_due_reference:null,source_fields:{
+    bank:priv.bank||null,bank_agency:priv.bank_agency||null,bank_account:priv.bank_account||null,bank_account_type:priv.bank_account_type||null,
+    pix_key:priv.pix_key||null,device_os:priv.device_os||null,shirt_size:priv.shirt_size||null,boot_size:priv.boot_size||null
+   }
+  };
+ });
+ const ps={};promoterIds={};promoterNames={};personKeyToId={};
+ for(const link of occupancies){
+  const p=persons.find(x=>x.id===link.promoter_id);if(!p)continue;
+  const rows=groups.get(link.sector_code)||[];
+  ps[link.sector_code]={name:p.full_name||"",phone:p.whatsapp||"",badge:"",supervisor:"",supervisorPhone:"",situation:rows[0]?.vacancy_status||p.status||"Vínculo informado"};
   promoterIds[link.sector_code]=p.id;promoterNames[link.sector_code]=p.full_name;
-  const dig=String(p.whatsapp||"").replace(/\D/g,"");
-  const norm=String(p.full_name||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-BR").trim();
-  const uiKey=dig.length>=10?"phone:"+(dig.startsWith("55")?dig:"55"+dig):norm?"name:"+norm:"sector:"+link.sector_code;
+  const dig=digits(p.whatsapp),uiKey=dig.length>=10?"phone:"+(dig.startsWith("55")?dig:"55"+dig):"name:"+norm(p.full_name);
   personKeyToId[uiKey]=p.id;
  }
  const savedCloud={promoters:ps,notes:{},sectorNotes:{},promoterNotes:{},favorites:{},author:"HARALD"};
  for(const n of notes){
   const group=n.target_type==="store"?"notes":n.target_type==="sector"?"sectorNotes":"promoterNotes";
   if(n.target_type==="promoter"){
-    const key=Object.keys(personKeyToId).find(k=>personKeyToId[k]===n.target_key);
-    if(key)savedCloud.promoterNotes[key]=n.note_body;
+   const k=Object.keys(personKeyToId).find(x=>personKeyToId[x]===n.target_key);if(k)savedCloud.promoterNotes[k]=n.note_body;
   }else savedCloud[group][n.target_key]=n.note_body;
  }
- legacySnapshot=window.haraldApp.getSnapshot();
- savedCloud.favorites=legacySnapshot.favorites||{};
- const visibleStores=assignmentRows.map(x=>x.source_details),visibleTeams=sectorRows.map(x=>x.source_details);
+ legacySnapshot=window.haraldApp.getSnapshot();savedCloud.favorites=legacySnapshot.favorites||{};
  window.haraldApp.mount({stores:visibleStores,teams:visibleTeams,saved:savedCloud});
  baseline=clone(window.haraldApp.getSnapshot());isReady=true;
- document.body.classList.remove("auth-locked");$("#authGate")?.remove();
+ document.body.classList.remove("auth-locked");document.body.classList.add("haraldSourceManaged");$("#authGate")?.remove();
  const header=$(".topTools");
- if(header&&!$("#cloudStatus")){const el=document.createElement("div");el.className="cloudUser";el.innerHTML='<span id="cloudStatus" aria-live="polite">☁ Conectado</span><button type="button" id="haraldLogout" title="Encerrar sessão">Sair</button>';header.appendChild(el);$("#haraldLogout").onclick=logout;}
- setStatus("☁ Dados sincronizados");
- if(role==="viewer"){document.body.classList.add("haraldViewer");setStatus("Somente leitura");}
- window.haraldPeople?.hydrate({persons,occupancies,notes,timeline,privateRows,teams:visibleTeams,stores:visibleStores,role,api});
- window.haraldDashboard?.hydrate({persons,occupancies,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports,sourceContracts,stores:visibleStores,teams:visibleTeams,role});
+ if(header&&!$("#cloudStatus")){const el=document.createElement("div");el.className="cloudUser";el.innerHTML='<span id="cloudStatus" aria-live="polite">☁ Fonte oficial</span><button type="button" id="haraldLogout" title="Encerrar sessão">Sair</button>';header.appendChild(el);$("#haraldLogout").onclick=logout;}
+ setStatus("☁ Controle Operacional sincronizado");
+ const sourceContracts=[{source_key:"horista",display_name:"Controle Operacional Horistas",expected_file_name:sourceState?.file_name||"Controle Operacional Horistas.xlsx",updated_at:sourceState?.processed_at||null,notes:{source_of_truth:true,scope:"HORISTA_ONLY",library_file_id:sourceState?.library_file_id||null}}];
+ window.haraldPeople?.hydrate({persons,occupancies,notes,timeline,privateRows,teams:visibleTeams,stores:visibleStores,role,sourceManaged:true,api});
+ window.haraldDashboard?.hydrate({persons,occupancies,routeDays,sectorStatuses,sectorCandidates:[],actualVisits:[],actualImports:[],sourceContracts,sourceState,stores:visibleStores,teams:visibleTeams,role});
  window.haraldApp?.refresh?.();
 }
-async function savePerson(sector,p){
- const id=promoterIds[sector];
- if(!id)throw Error("Utilize Equipe e histórico para vincular o promotor ao setor.");
- if(p.name?.trim()&&p.name.trim()!==promoterNames[sector])throw Error("Para trocar o ocupante, use Equipe e histórico → Registrar substituição. O nome anterior não pode ser sobrescrito.");
- const payload={whatsapp:p.phone||null,registration_number:p.badge||null,supervisor_name:p.supervisor||null,supervisor_phone:p.supervisorPhone||null};
- await api("harald_promoters?id=eq."+encodeURIComponent(id),{method:"PATCH",body:payload});
+async function savePerson(){
+ throw Error("Dados operacionais são geridos no chat Controle Operacional e sincronizados pelo arquivo oficial. Atualize a fonte, não o Console.");
 }
 async function saveNote(kind,key,value){
   const scenario=kind==="sector"?(key.startsWith("GH1-")?"C1":"C2"):null;
