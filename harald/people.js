@@ -17,9 +17,9 @@ const occPerson=id=>state.occupancies.filter(o=>o.promoter_id===id).sort((a,b)=>
 const badge=(text,cls="")=>`<span class="hpBadge ${cls}">${E(text)}</span>`;
 const detail=(k,v)=>`<div class="hpDetail"><span>${E(k)}</span><strong>${E(v??"Não informado")}</strong></div>`;
 const statusFor=(o,p)=>{
- if(!o)return {label:"Sem promotor",cls:"muted"};
+ if(!o)return {label:"VAGA OPEN · sem promotor",cls:"scheduled"};
  if(o.end_date)return {label:"Encerrado",cls:"muted"};
- if(state.sourceManaged)return {label:"Vínculo informado na fonte",cls:"active"};
+ if(state.sourceManaged)return {label:"ATIVO · com promotor",cls:"active"};
  const delta=days(o.start_date);
  if(delta!==null&&delta>0)return {label:"Início previsto · "+D(o.start_date),cls:"scheduled"};
  if(p?.status==="DESLIGADO")return {label:"Cadastro desligado · revisar",cls:"danger"};
@@ -73,8 +73,8 @@ function sectorCard(t){
  return `<button class="hpSectorListRow ${has?"":"noContact"}" type="button" data-hpa="openSector" data-sector="${E(t.sector)}" aria-label="Abrir ficha e histórico do setor ${E(t.sector)}, ${has?"com contato":"sem contato"}">
  <span class="hpSectorId"><strong>${E(t.sector)}</strong><small>${E(model(t))} · ${E(t.modal||"Modal não informado")}</small></span>
  <span class="hpSectorCities">${E(t.cities||t.uf||"Cidades não informadas")}</span>
- <span class="hpSectorOwner"><span class="hpAvatar">${E(initials(p?.full_name))}</span><span><strong>${E(p?.full_name||"Sem promotor")}</strong><small>${E(p?.registration_number?"Matrícula "+p.registration_number:"Matrícula pendente")}</small></span></span>
- <span class="hpSectorContact">${badge(has?"✓ Com contato":"! Sem contato",has?"active":"scheduled")}<small>${has?E(p.whatsapp):"Telefone ausente ou inválido"}</small></span>
+ <span class="hpSectorOwner"><span class="hpAvatar">${E(initials(p?.full_name))}</span><span><strong>${E(p?.full_name||"VAGA OPEN")}</strong><small>${E(p?((p.registration_number?"Matrícula "+p.registration_number:"Matrícula não informada")):"Sem promotor vinculado")}</small></span></span>
+ <span class="hpSectorContact">${badge(o?"ATIVO":"VAGA OPEN",o?"active":"scheduled")}<small>${has?E(p.whatsapp):o?"Telefone ausente ou inválido":"Sem promotor"}</small></span>
  <span class="hpSectorHours"><strong>${E(t.pdvs||0)} lojas</strong><small>${E(t.hours||0)}h / semana</small></span>
  <span class="hpSectorArrow" aria-hidden="true">›</span>
  </button>`;
