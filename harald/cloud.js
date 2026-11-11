@@ -97,19 +97,11 @@ async function loadData(){
  const storeKey=row=>[row.sector_code,digits(row.cnpj),norm(row.store_name).replace(/[^a-z0-9]+/g,"-")].filter(Boolean).join("|");
  const dayMap={SEG:1,TER:2,QUA:3,QUI:4,SEX:5,SAB:6,DOM:7};
  const parseDays=value=>String(value||"").toLocaleUpperCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g,"").split(/[^A-Z]+/).map(x=>x==="QUAT"?"QUA":x).filter(x=>dayMap[x]);
- const sourceStatusToPerson=rows=>{
-  const values=new Set(rows.map(x=>String(x.vacancy_status||"").toUpperCase()).filter(Boolean));
-  if(values.has("ATIVO"))return "ATIVO";
-  if(values.has("EM ADMISSÃO"))return "EM ADMISSÃO";
-  if(values.has("CONTRATADO"))return "CONTRATADO";
-  if(values.has("VAGA OPEN"))return "VINCULADO · REVISAR STATUS";
-  return "VINCULADO";
- };
- const sourceStatusToConsole=rows=>{
-  const vals=[...new Set(rows.map(x=>String(x.vacancy_status||"").toUpperCase()).filter(Boolean))];
-  if(vals.length!==1)return null;
-  return {ATIVO:"active","VAGA OPEN":"open","EM ADMISSÃO":"onboarding","CONTRATADO":"hired"}[vals[0]]||null;
- };
+ // Situação operacional derivada exclusivamente do vínculo PROMOTOR ↔ SETOR.
+ // O texto original continua disponível para auditoria em sourceStatusRaw.
+ const hasAssignedPromoter=rows=>rows.some(x=>String(x.promoter_name||"").trim().length>0);
+ const sourceStatusToPerson=rows=>hasAssignedPromoter(rows)?"ATIVO":"VAGA OPEN";
+ const sourceStatusToConsole=rows=>hasAssignedPromoter(rows)?"active":"open";
  const groups=new Map();
  for(const row of sourceRows){
   if(!groups.has(row.sector_code))groups.set(row.sector_code,[]);
@@ -126,7 +118,7 @@ async function loadData(){
    rev:row.reviewed||"Controle Operacional",phase:"HORISTAS",channel:"",legal:"",charge:1,
    weekKm:Number(row.km_store_week||0),rateAvg:Number(row.avg_displacement||0),
    situation:row.registration_pending||"",sourceObs:row.registration_pending||"",
-   sourceStatus:row.vacancy_status||"",routeStatus:row.route_status||"",promoterName:row.promoter_name||""
+   sourceStatus:sourceStatusToPerson(groups.get(row.sector_code)||[]),routeStatus:row.route_status||"",promoterName:row.promoter_name||""
   };
  });
  const visibleTeams=[...groups.entries()].map(([sector,rows])=>{
@@ -205,7 +197,7 @@ async function loadData(){
  for(const link of occupancies){
   const p=persons.find(x=>x.id===link.promoter_id);if(!p)continue;
   const rows=groups.get(link.sector_code)||[];
-  ps[link.sector_code]={name:p.full_name||"",phone:p.whatsapp||"",badge:"",supervisor:"",supervisorPhone:"",situation:rows[0]?.vacancy_status||p.status||"Vínculo informado"};
+  ps[link.sector_code]={name:p.full_name||"",phone:p.whatsapp||"",badge:"",supervisor:"",supervisorPhone:"",situation:"ATIVO"};
   promoterIds[link.sector_code]=p.id;promoterNames[link.sector_code]=p.full_name;
   const dig=digits(p.whatsapp),uiKey=dig.length>=10?"phone:"+(dig.startsWith("55")?dig:"55"+dig):"name:"+norm(p.full_name);
   personKeyToId[uiKey]=p.id;
