@@ -102,7 +102,9 @@ function analyze({model=null,ufSet=null,activeOnly=false}={}){
  const assignedActual=availableActuals(ctx.scenario,st.week,activeTeams,ufSet,maps);
  const missing=teams.filter(t=>!maps.statuses.has(t.sector)).length;
  const byStatus=Object.fromEntries(Object.keys(STATUS).map(k=>[k,teams.filter(t=>maps.statuses.get(t.sector)?.status===k).length]));
- const filledSectors=teams.filter(t=>maps.assigns.has(t.sector)).length;\n const filledOpen=teams.filter(t=>maps.assigns.has(t.sector)&&maps.statuses.get(t.sector)?.status==="open").length;\n return {filledSectors,filledOpen,sectors:teams.length,stores:countDistinctStores(storeRows),links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
+ const filledSectors=teams.filter(t=>maps.assigns.has(t.sector)).length;
+ const filledOpen=teams.filter(t=>maps.assigns.has(t.sector)&&maps.statuses.get(t.sector)?.status==="open").length;
+ return {filledSectors,filledOpen,sectors:teams.length,stores:countDistinctStores(storeRows),links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
 }
 function summaryMetric(label,value,help,accent=""){
  return `<article class="hdTopMetric ${accent}"><div class="hdTopMetricLabel">${esc(label)}</div><strong>${esc(value)}</strong><small>${esc(help)}</small></article>`;
@@ -338,6 +340,8 @@ function loadMap(){
    st.geo=j;st.geoError=false;refresh();
  }).catch(e=>{console.error("HARALD map",e);st.geoError=true;refresh();}).finally(()=>{st.gettingGeo=false;});
 }
-function hydrate(d){\n st.data=d;loadMap();\n}
+function hydrate(d){
+ st.data=d;loadMap();
+}
 window.haraldDashboard={hydrate,render,afterRender,handleAction,getState:()=>({week:st.week,region:st.region,uf:st.uf})};
 })();
