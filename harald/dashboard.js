@@ -101,7 +101,7 @@ function analyze({model=null,ufSet=null,activeOnly=false}={}){
  const filledSectors=teams.filter(t=>maps.assigns.has(t.sector)).length;
  const missing=0,filledOpen=0;
  const byStatus={active:filledSectors,open:teams.length-filledSectors};
- return {filledSectors,filledOpen,sectors:teams.length,stores:countDistinctStores(storeRows),links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
+ return {filledSectors,filledOpen,sectors:teams.length,stores:countDistinctStores(storeRows),storesWithPromoter:storeRows.filter(x=>String(x.promoterName||"").trim()).length,links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
 }
 function summaryMetric(label,value,help,accent=""){
  return `<article class="hdTopMetric ${accent}"><div class="hdTopMetricLabel">${esc(label)}</div><strong>${esc(value)}</strong><small>${esc(help)}</small></article>`;
@@ -205,7 +205,7 @@ function geographyDetails(){
  const peopleList=uniquePeople.map(({team,who})=>`<button type="button" data-hd-person="${esc(who.person.id)}" class="hdMapPerson hdDetailRow" aria-label="Abrir ficha de ${esc(who.person.full_name)}"><span class="hdPersonAvatar">${esc((who.person.full_name||"?").split(/\s+/).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</span><span class="hdDetailRowText"><b>${esc(who.person.full_name)}</b><small>${esc(team.sector)} · ${esc(who.isUpcoming?"Início previsto":who.isActive?"Ativo cadastral":"Status a confirmar")}</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`).join("");
  const areaRows=areaList.map(v=>{
   const count=v.sectors,active=v.active;
-  return `<button type="button" class="hdAreaRow hdDetailRow" data-hd-${v.level}="${esc(v.id)}" aria-label="${esc(v.title)}: ${nfmt(count)} setores"><span class="hdAreaAvatar">${v.level==="uf"?esc(v.id):"◉"}</span><span class="hdDetailRowText"><b>${esc(v.title)}</b><small>${nfmt(v.stores)} lojas · ${nfmt(v.filledSectors)} ativos · ${nfmt(v.sectors-v.filledSectors)} vagas abertas</small></span><span class="hdAreaSectorTotal"><b>${nfmt(count)}</b><small>setores</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`;
+  return `<button type="button" class="hdAreaRow hdDetailRow" data-hd-${v.level}="${esc(v.id)}" aria-label="${esc(v.title)}: ${nfmt(count)} setores"><span class="hdAreaAvatar">${v.level==="uf"?esc(v.id):"◉"}</span><span class="hdDetailRowText"><b>${esc(v.title)}</b><small>${nfmt(v.filledSectors)}/${nfmt(v.sectors)} setores ativos · ${nfmt(v.storesWithPromoter)}/${nfmt(v.stores)} lojas com promotor informado</small></span><span class="hdAreaSectorTotal"><b>${nfmt(count)}</b><small>setores</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`;
  }).join("");
  const sectionTitle=mode==="national"?"Explore por região":mode==="region"?"Estados desta região":st.detailTab==="people"?"Promotores vinculados":st.detailTab==="stores"?"Lojas do estado":"Setores do estado";
  let listHtml=mode==="uf"?(st.detailTab==="people"?peopleList:st.detailTab==="stores"?storeList:sectorList):areaRows;
@@ -216,7 +216,7 @@ function geographyDetails(){
  return `<aside class="hdMapDetail" aria-label="Detalhes territoriais da operação">
  <div class="hdDetailFixed">
  <div class="hdScopeTitle"><span class="hdEyebrow">${mode==="national"?"PANORAMA NACIONAL":mode==="region"?"PANORAMA REGIONAL":"EXPLORAÇÃO POR UF"}</span><div class="hdScopeHeading"><h3>${esc(projectMapTitle())}</h3>${st.uf?'<button type="button" class="hdBackLink" data-hd-clear-uf>← Região</button>':st.region?'<button type="button" class="hdBackLink" data-hd-clear-region>← Brasil</button>':""}</div><p>${mode==="national"?"Clique em uma região ou estado no mapa":mode==="uf"?esc(UF_REGIONS[st.uf]):"Clique em um estado no mapa"}</p></div>
- <div class="hdScopeKpis" aria-label="Indicadores do local selecionado"><div><strong>${nfmt(m.sectors)}</strong><span>Setores</span></div><div><strong>${nfmt(m.filledSectors)}</strong><span>ATIVO</span></div><div><strong>${nfmt(m.sectors-m.filledSectors)}</strong><span>VAGA OPEN</span></div><div><strong>${nfmt(m.stores)}</strong><span>Lojas</span></div></div>
+ <div class="hdScopeKpis" aria-label="Indicadores do local selecionado"><div><strong>${nfmt(m.filledSectors)}/${nfmt(m.sectors)}</strong><span>Setores ativos / total</span></div><div><strong>${nfmt(m.sectors-m.filledSectors)}</strong><span>VAGA OPEN</span></div><div><strong>${nfmt(m.storesWithPromoter)}/${nfmt(m.stores)}</strong><span>Lojas com promotor / total</span></div><div><strong>${nfmt(m.links)}</strong><span>Promotores únicos</span></div></div>
  ${coverageToolbar}
  ${tabHeader}
  ${mode==="uf"?`<div class="hdDetailSearch"><span aria-hidden="true">⌕</span><input id="hdScopeSearch" type="search" placeholder="Buscar loja, setor, cidade ou promotor" aria-label="Pesquisar nesta lista" autocomplete="off"/><small id="hdResultsCount">${nfmt(listSize)} registros</small></div>`:""}
@@ -270,7 +270,7 @@ function geoPaths(){
 }
 function brazilMap(){
  return `<section class="hdCard hdMapCard" aria-labelledby="hdMapTitle">
- <div class="hdCardHead hdMapCardHeader"><div><span class="hdEyebrow">01 · PRIMEIRO, ONDE ESTAMOS?</span><h2 id="hdMapTitle">Mapa da operação</h2><p>Cada estado mostra <b>ATIVO / TOTAL DE SETORES</b>. Selecione a UF para ver as vagas abertas e as lojas relacionadas.</p></div><div class="hdMapKey"><span class="hdMapKeyDot"></span><span><b>26 estados + DF</b><small>Explore por território</small></span></div></div>
+ <div class="hdCardHead hdMapCardHeader"><div><span class="hdEyebrow">01 · COBERTURA TERRITORIAL</span><h2 id="hdMapTitle">Mapa da operação</h2><p>Rótulo da UF: <b>setores ativos / setores totais</b>. No detalhamento, veja também lojas com promotor e vagas abertas. Os números de lojas e setores não devem ser somados.</p></div><div class="hdMapKey"><span class="hdMapKeyDot"></span><span><b>26 estados + DF</b><small>Explore por território</small></span></div></div>
  <div class="hdRegionChips" role="group" aria-label="Selecionar região brasileira"><button data-hd-country aria-pressed="${!st.region&&!st.uf}" class="${!st.region&&!st.uf?"selected":""}">Brasil</button>${Object.keys(REGIONS).map(r=>`<button data-hd-region="${esc(r)}" aria-pressed="${st.region===r&&!st.uf}" class="${st.region===r?"selected":""}">${esc(r)}</button>`).join("")}</div>
  <div class="hdMapLayout"><div class="hdMapFigure"><div class="hdMapCanvas">${geoPaths()}</div><div class="hdMapLegend"><span><i class="allActive"></i> Todas ativas</span><span><i class="mixed"></i> Com promotor e vagas</span><span><i class="allOpen"></i> Só vagas abertas</span><span><i class="zero"></i> Sem setor</span></div><small class="hdGeoCredit">ATIVO / TOTAL · 1 setor pode atender várias lojas · limites estaduais do IBGE</small></div>${geographyDetails()}</div>
  </section>`;
@@ -284,12 +284,15 @@ function render({scenario,contract,stores,teams,saved}){
  ${horistaVisuals()}
  <div class="hdSectionHeading"><div><span class="hdEyebrow">03 · RESUMO OPERACIONAL</span><h2>Indicadores Horistas</h2></div><p>Uma única fonte, sem mistura com CLT.</p></div>
  <div class="hdTopMetrics">
- ${summaryMetric("Lojas",nfmt(x.stores),"PDVs na aba Controle Operacional","stores")}
- ${summaryMetric("Vagas / setores",nfmt(x.sectors),"Setores Horistas únicos","sectors")}
+ ${summaryMetric("Lojas totais",nfmt(x.stores),"PDVs na aba Controle Operacional","stores")}
+ ${summaryMetric("Lojas com promotor",nfmt(x.storesWithPromoter),"Linhas de lojas com PROMOTOR informado","people")}
+ ${summaryMetric("Vagas / setores",nfmt(x.sectors),"Códigos GH2 únicos","sectors")}
  ${summaryMetric("Vagas preenchidas",nfmt(x.filledSectors),"Setores com PROMOTOR informado","people")}
  ${summaryMetric("Sem promotor",nfmt(unfilled),"Setores ainda sem vínculo","average")}
  ${summaryMetric("Promotores únicos",nfmt(x.links),"Pessoas vinculadas na fonte","people")}
- ${summaryMetric("Visitas programadas",nfmt(x.planned,st.week==="AVG"?1:0),"Programação semanal da fonte","visits")}
+ ${summaryMetric("Visitas programadas",nfmt(x.planned,st.week==="AVG"?1:0),"Programação da semana selecionada","visits")}
+ ${summaryMetric("Média prevista / promotor",x.plannedAverage===null?"—":nfmt(x.plannedAverage,1),"Visitas planejadas nos setores ativos / promotores únicos","visits")}
+ ${summaryMetric("Visitas realizadas","Sem dados","Execução ainda não publicada; não equiparar à programação","realized")}
  </div>
  ${statusCard()}
  <div class="hdBottomNote"><b>Regra do Console:</b> ATIVO significa setor com PROMOTOR vinculado; VAGA OPEN significa setor sem PROMOTOR. O status original permanece preservado na fonte, e o Console não altera a planilha.</div></div>`;
