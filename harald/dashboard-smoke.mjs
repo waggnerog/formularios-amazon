@@ -49,13 +49,20 @@ const dashboardData={
   {scenario_code:'C2',sector_code:'GH2-SP-001',promoter_id:'person-sp',start_date:'2020-01-01',end_date:null},
   {scenario_code:'C2',sector_code:'GH2-RJ-001',promoter_id:'person-rj',start_date:'2099-12-31',end_date:null}
  ],
- sectorStatuses:[],actualVisits:[],actualImports:[]
+ sectorStatuses:[],actualVisits:[],actualImports:[],
+ sourceContracts:[{source_key:'horista',display_name:'Controle Operacional de Horistas',expected_file_name:'GENIALE_HARALD_Controle_Operacional_Horistas_ATUALIZADO.xlsx',notes:{source_chat_url:'https://chatgpt.com/share/6af460f2-e37c-83e9-b593-ee27a36b1999'}}]
 };
 app.hydrate(dashboardData);
 await new Promise(r=>setTimeout(r,0));
 const params={scenario:'C2',contract:'ALL',teams,stores,saved:{}};
 const initial=app.render(params);
 assert.ok(initial.includes('Visão geral da operação'));
+assert.ok(initial.includes('Vagas Horistas'),'Painel visual Horista deve aparecer na operação completa');
+assert.ok(initial.includes('hdDonut'),'Gráfico circular de vagas Horistas ausente');
+assert.ok(initial.includes('Distribuição por região'),'Barras regionais Horistas ausentes');
+assert.ok(initial.includes('Preenchidas'),'Indicador de vagas preenchidas ausente');
+assert.ok(initial.includes('Controle Operacional de Horistas'),'Fonte oficial Horista deve ser exibida');
+assert.ok(initial.includes('6af460f2-e37c-83e9-b593-ee27a36b1999'),'Link de proveniência Horista deve ser preservado');
 assert.ok(initial.includes('Fulltime (CLT)'));
 assert.ok(initial.includes('Parttime (CLT)'));
 assert.ok(initial.includes('Horistas'));
