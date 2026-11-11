@@ -102,7 +102,7 @@ function analyze({model=null,ufSet=null,activeOnly=false}={}){
  const assignedActual=availableActuals(ctx.scenario,st.week,activeTeams,ufSet,maps);
  const missing=teams.filter(t=>!maps.statuses.has(t.sector)).length;
  const byStatus=Object.fromEntries(Object.keys(STATUS).map(k=>[k,teams.filter(t=>maps.statuses.get(t.sector)?.status===k).length]));
- return {sectors:teams.length,stores:countDistinctStores(storeRows),links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
+ const filledSectors=teams.filter(t=>maps.assigns.has(t.sector)).length;\n const filledOpen=teams.filter(t=>maps.assigns.has(t.sector)&&maps.statuses.get(t.sector)?.status==="open").length;\n return {filledSectors,filledOpen,sectors:teams.length,stores:countDistinctStores(storeRows),links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
 }
 function summaryMetric(label,value,help,accent=""){
  return `<article class="hdTopMetric ${accent}"><div class="hdTopMetricLabel">${esc(label)}</div><strong>${esc(value)}</strong><small>${esc(help)}</small></article>`;
@@ -125,59 +125,56 @@ function sourceContract(key){
 }
 function horistaVisuals(){
  const h=analyze({model:"HORISTA"});
- const total=h.sectors||0;
+ const total=h.sectors||0,filled=h.filledSectors||0,unfilled=Math.max(0,total-filled);
  const active=h.statuses.active||0,hired=h.statuses.hired||0,onboarding=h.statuses.onboarding||0,open=h.statuses.open||0,pending=h.missing||0;
- const filled=active+hired;
  const pct=n=>total?Math.max(0,Math.min(100,(n/total)*100)):0;
- const pFilled=pct(filled),pOnboarding=pct(onboarding),pOpen=pct(open),pPending=pct(pending);
- const a=pFilled,b=a+pOnboarding,c=b+pOpen,d=Math.min(100,c+pPending);
- const donut=`background:conic-gradient(#5aa991 0 ${a.toFixed(2)}%,#8987d8 ${a.toFixed(2)}% ${b.toFixed(2)}%,#e2a45b ${b.toFixed(2)}% ${c.toFixed(2)}%,#cbd3e2 ${c.toFixed(2)}% ${d.toFixed(2)}%,#eef2f8 ${d.toFixed(2)}% 100%)`;
+ const pFilled=pct(filled);
+ const donut=`background:conic-gradient(#5aa991 0 ${pFilled.toFixed(2)}%,#e8edf5 ${pFilled.toFixed(2)}% 100%)`;
  const regions=Object.entries(REGIONS).map(([name,ufs])=>{
    const x=analyze({model:"HORISTA",ufSet:new Set(ufs)});
-   const done=(x.statuses.active||0)+(x.statuses.hired||0);
-   return {name,total:x.sectors,filled:done,onboarding:x.statuses.onboarding||0,open:x.statuses.open||0,pct:x.sectors?done/x.sectors*100:0};
+   return {name,total:x.sectors,filled:x.filledSectors||0};
  }).sort((x,y)=>y.total-x.total);
  const maxRegion=Math.max(1,...regions.map(x=>x.total));
- const contract=sourceContract("horista"),notes=contract?.notes||{};
- const sourceUrl=notes.source_chat_url||"https://chatgpt.com/share/6af460f2-e37c-83e9-b593-ee27a36b1999";
- const sourceLabel=contract?.display_name||"Controle Operacional de Horistas";
- const officialFile=contract?.expected_file_name||"GENIALE_HARALD_Controle_Operacional_Horistas_ATUALIZADO.xlsx";
+ const source=st.data?.sourceState||{},quality=source.quality||{};
+ const conflicts=Number(quality.filled_with_open_status_count||h.filledOpen||0);
+ const noStatus=Number(quality.status_not_informed_sector_count||pending||0);
+ const sourceLabel=source.file_name||"Controle Operacional Horistas.xlsx";
+ const processed=source.processed_at?new Date(source.processed_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"}):"Aguardando publicação";
  return `<section class="hdCard hdHoristaCard" aria-labelledby="hdHoristaTitle">
- <div class="hdCardHead hdHoristaHead"><div><span class="hdEyebrow">02 · COBERTURA HORISTA</span><h2 id="hdHoristaTitle">Vagas Horistas</h2><p>Leitura rápida da capacidade, preenchimento e distribuição regional.</p></div><a class="hdSourceLink" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer"><span>Fonte oficial · atualização manual</span><b>${esc(sourceLabel)}</b><small>${esc(officialFile)}</small></a></div>
+ <div class="hdCardHead hdHoristaHead"><div><span class="hdEyebrow">02 · COBERTURA HORISTA</span><h2 id="hdHoristaTitle">Vagas Horistas</h2><p>Preenchimento definido pela existência de promotor vinculado ao setor na fonte oficial.</p></div><div class="hdSourceLink hdSourceStatic"><span>FONTE OFICIAL · CHAT CONTROLE OPERACIONAL</span><b>${esc(sourceLabel)}</b><small>Aba Controle Operacional · publicada ${esc(processed)}</small></div></div>
  <div class="hdHoristaGrid">
    <div class="hdDonutPanel">
      <div class="hdDonutWrap"><div class="hdDonut" style="${donut}" role="img" aria-label="${nfmt(filled)} de ${nfmt(total)} vagas Horistas preenchidas"><div class="hdDonutCenter"><strong>${nfmt(total)}</strong><span>vagas</span></div></div></div>
      <div class="hdDonutPrimary"><span>Preenchidas</span><strong>${nfmt(filled)}</strong><small>${nfmt(pFilled,1)}% do total</small></div>
      <div class="hdLegendGrid">
-       <div><i class="filled"></i><span>Ativo + Contratado</span><b>${nfmt(filled)}</b></div>
-       <div><i class="onboarding"></i><span>Em admissão</span><b>${nfmt(onboarding)}</b></div>
-       <div><i class="open"></i><span>Vaga Open</span><b>${nfmt(open)}</b></div>
-       ${pending?`<div><i class="pending"></i><span>Aguardando fonte</span><b>${nfmt(pending)}</b></div>`:""}
+       <div><i class="filled"></i><span>Com promotor</span><b>${nfmt(filled)}</b></div>
+       <div><i class="pending"></i><span>Sem promotor</span><b>${nfmt(unfilled)}</b></div>
      </div>
    </div>
    <div class="hdHoristaStatus">
      <div class="hdMiniKpis">
-       <div><span>Total de vagas</span><strong>${nfmt(total)}</strong><small>Capacidade aprovada</small></div>
-       <div><span>Preenchidas</span><strong>${nfmt(filled)}</strong><small>Ativo + Contratado</small></div>
-       <div><span>Em processo</span><strong>${nfmt(onboarding)}</strong><small>Em admissão</small></div>
-       <div><span>Disponíveis</span><strong>${nfmt(open)}</strong><small>Vaga Open</small></div>
+       <div><span>Total de vagas</span><strong>${nfmt(total)}</strong><small>Setores Horistas</small></div>
+       <div><span>Preenchidas</span><strong>${nfmt(filled)}</strong><small>Promotor informado</small></div>
+       <div><span>Sem promotor</span><strong>${nfmt(unfilled)}</strong><small>Ainda sem vínculo</small></div>
+       <div><span>Promotores únicos</span><strong>${nfmt(h.links)}</strong><small>Pessoas na fonte</small></div>
      </div>
-     <div class="hdStatusFlow" aria-label="Composição das vagas Horistas">
+     <div class="hdStatusFlow" aria-label="Status informado das vagas">
        ${[["Ativo",active,"active"],["Contratado",hired,"hired"],["Em admissão",onboarding,"onboarding"],["Vaga Open",open,"open"]].map(([label,value,cls])=>`<div class="hdFlowRow"><span>${label}</span><div class="hdFlowTrack"><i class="${cls}" style="width:${pct(value).toFixed(2)}%"></i></div><b>${nfmt(value)}</b></div>`).join("")}
+       <div class="hdFlowRow"><span>Sem status</span><div class="hdFlowTrack"><i class="pending" style="width:${pct(pending).toFixed(2)}%"></i></div><b>${nfmt(pending)}</b></div>
      </div>
    </div>
  </div>
- <div class="hdRegionBars"><div class="hdRegionBarsHead"><div><b>Distribuição por região</b><span>Barra = total de vagas · preenchimento destacado</span></div><small>${nfmt(total)} vagas no Brasil</small></div>
+ <div class="hdRegionBars"><div class="hdRegionBarsHead"><div><b>Distribuição por região</b><span>Barra = vagas por região · verde = setores com promotor</span></div><small>${nfmt(total)} vagas no Brasil</small></div>
  ${regions.map(r=>`<div class="hdRegionBarRow"><span class="hdRegionName">${esc(r.name)}</span><div class="hdRegionTrack" title="${nfmt(r.filled)} preenchidas de ${nfmt(r.total)}"><i class="capacity" style="width:${Math.max(1,r.total/maxRegion*100)}%"><em class="filled" style="width:${r.total?r.filled/r.total*100:0}%"></em></i></div><span class="hdRegionValue"><b>${nfmt(r.total)}</b><small>${nfmt(r.filled)} preenchidas</small></span></div>`).join("")}
  </div>
- <div class="hdHoristaNote"><b>Como ler:</b> “Preenchida” significa vaga com status <b>Ativo</b> ou <b>Contratado</b>. “Em admissão” aparece separado para não inflar o preenchimento. Cadastros de pessoas sem vínculo de setor não contam como vaga preenchida. <b>Os números exibidos são os últimos dados efetivamente processados no Supabase.</b></div>
+ ${(conflicts||noStatus)?`<div class="hdHoristaNote"><b>Qualidade da fonte:</b> ${conflicts?`<strong>${nfmt(conflicts)} setor(es)</strong> têm promotor informado e ainda aparecem como Vaga Open. `:""}${noStatus?`<strong>${nfmt(noStatus)} setor(es)</strong> estão sem status da vaga informado. `:""}O Console preserva essas divergências para revisão; não corrige a planilha silenciosamente.</div>`:`<div class="hdHoristaNote"><b>Fonte consistente:</b> não há divergências de preenchimento/status detectadas na versão publicada.</div>`}
  </section>`;
 }
 function statusCard(){
  const x=analyze();
  const cards=[["active","Ativo"],["open","Vaga Open"],["onboarding","Em admissão"],["hired","Contratado"]];
  const pending=x.missing;
- return `<section class="hdCard"><div class="hdCardHead"><div><span class="hdEyebrow">STATUS DA VAGA / SETOR</span><h2>Situação das vagas</h2><p>Fonte oficial: Controle Operacional coluna E · Controle Horista coluna O.</p></div>${pending?`<span class="hdFlag">${pending} aguardando atualização da fonte</span>`:`<span class="hdFlag">Base de status completa</span>`}</div>
+ return `<section class="hdCard"><div class="hdCardHead"><div><span class="hdEyebrow">STATUS DA VAGA / SETOR</span><h2>Situação das vagas</h2><p>Fonte oficial: Controle Operacional Horistas.xlsx · campo STATUS DA VAGA (CONTROLE HORISTA).</p></div>${pending?`<span class="hdFlag">${pending} aguardando atualização da fonte</span>`:`<span class="hdFlag">Base de status completa</span>`}</div>
  <div class="hdStatusTiles">${cards.map(([k,label])=>`<div class="hdStatusTile"><span class="hdStatusDot ${k}"></span><span>${label}</span><strong>${nfmt(x.statuses[k]||0)}</strong></div>`).join("")}</div>
  ${pending?`<div class="hdNotice"><b>${pending} setor(es)</b> ainda possuem texto legado sem correspondência segura nos quatro status atuais. Eles ficarão fora da contagem até a planilha atualizada ser sincronizada.</div>`:`<div class="hdNotice"><b>Status normalizado:</b> Ativo, Vaga Open, Em admissão e Contratado. O status do promotor é tratado separadamente.</div>`}</section>`;
 }
@@ -272,24 +269,24 @@ function brazilMap(){
  </section>`;
 }
 function render({scenario,contract,stores,teams,saved}){
- st.ctx={scenario,contract,stores,teams,saved};
- if(!st.data)return '<section class="hdCard"><h2>Preparando painel de gestão…</h2><p>Carregando a programação e os cadastros autorizados do Supabase.</p></section>';
- const x=analyze(),complete=scenario==="C2";
- const result= x.actual.n===null?'—':nfmt(x.actual.n,st.week==="AVG"?1:0);
- return `<div class="hdDashboard"><div class="hdDashHero"><div><span>PAINEL NACIONAL · GENIALE / HARALD</span><h1>Visão geral da operação</h1><p>${complete?"Operação completa · Start 1 + Start 2":"Etapa inicial · Start 1"} · números reais do planejamento e cadastros verificados.</p></div><button type="button" data-hd-refresh class="hdRefresh">↻ Atualizar painel</button></div>
- <div class="hdToolbar"><div><span class="hdEyebrow">PERÍODO DO ROTEIRO</span><div class="hdWeekTabs">${[["AVG","Média semanal"],["1","Semana 1"],["2","Semana 2"]].map(([id,label])=>`<button data-hd-week="${id}" class="${st.week===id?"active":""}" aria-pressed="${st.week===id}">${label}</button>`).join("")}</div></div><p>As duas semanas são alternativas do ciclo de programação. A média semanal não soma duas semanas como se fossem um único período.</p></div>
+ st.ctx={scenario:"C2",contract:"HORISTA",stores,teams,saved};
+ if(!st.data)return '<section class="hdCard"><h2>Preparando painel de gestão…</h2><p>Carregando a fonte oficial Horista publicada no Supabase.</p></section>';
+ const x=analyze({model:"HORISTA"}),unfilled=Math.max(0,x.sectors-x.filledSectors);
+ return `<div class="hdDashboard"><div class="hdDashHero"><div><span>PAINEL NACIONAL · GENIALE / HARALD</span><h1>Controle Operacional Horistas</h1><p>Fonte única: Controle Operacional Horistas.xlsx · aba Controle Operacional.</p></div><button type="button" data-hd-refresh class="hdRefresh">↻ Atualizar painel</button></div>
+ <div class="hdToolbar"><div><span class="hdEyebrow">PERÍODO DO ROTEIRO</span><div class="hdWeekTabs">${[["AVG","Média semanal"],["1","Semana 1"],["2","Semana 2"]].map(([id,label])=>`<button data-hd-week="${id}" class="${st.week===id?"active":""}" aria-pressed="${st.week===id}">${label}</button>`).join("")}</div></div><p>O roteiro vem da mesma aba operacional. Preenchimento e status são tratados como informações diferentes.</p></div>
  ${brazilMap()}
- ${scenario==="C2"&&contract==="ALL"?horistaVisuals():""}
- <div class="hdSectionHeading"><div><span class="hdEyebrow">03 · O QUE OS DADOS MOSTRAM?</span><h2>Indicadores da operação</h2></div><p>Planejamento, promotores cadastrados e execução.</p></div>
+ ${horistaVisuals()}
+ <div class="hdSectionHeading"><div><span class="hdEyebrow">03 · RESUMO OPERACIONAL</span><h2>Indicadores Horistas</h2></div><p>Uma única fonte, sem mistura com CLT.</p></div>
  <div class="hdTopMetrics">
- ${summaryMetric("Lojas planejadas",nfmt(x.stores),"PDVs distintos no cenário","stores")}
- ${summaryMetric("Setores / vagas",nfmt(x.sectors),"Roteiros permanentes no cenário","sectors")}
- ${summaryMetric("Promotores ativos*",nfmt(x.active),`${nfmt(x.links)} vinculados · ${nfmt(x.upcoming)} com início futuro`,"people")}
- ${summaryMetric("Visitas programadas",nfmt(x.planned,st.week==="AVG"?1:0),"Total de visitas por semana do ciclo","visits")}
- ${summaryMetric("Média prevista / ativo",x.plannedAverage!==null?nfmt(x.plannedAverage,1):"—","Só setores dos promotores ativos*","average")}
- ${summaryMetric("Média realizada / ativo",x.actualAverage!==null?nfmt(x.actualAverage,1):"—",x.actual.n===null?"Aguardando base de execução":x.actual.mode==="partial"?"Dados parciais":"Com base de execução completa","realized")}
- </div>${typeTable()}${statusCard()}
- <div class="hdBottomNote"><b>Definições:</b> Fulltime e Parttime são os dois grupos operacionais CLT; Horistas são separados. Visitas programadas vêm do roteiro de cada loja. “Realizado” só aparecerá após importação das visitas e terá indicação de dados parciais quando aplicável. O status da vaga não é inferido pela existência de um promotor.</div></div>`;
+ ${summaryMetric("Lojas",nfmt(x.stores),"PDVs na aba Controle Operacional","stores")}
+ ${summaryMetric("Vagas / setores",nfmt(x.sectors),"Setores Horistas únicos","sectors")}
+ ${summaryMetric("Vagas preenchidas",nfmt(x.filledSectors),"Setores com PROMOTOR informado","people")}
+ ${summaryMetric("Sem promotor",nfmt(unfilled),"Setores ainda sem vínculo","average")}
+ ${summaryMetric("Promotores únicos",nfmt(x.links),"Pessoas vinculadas na fonte","people")}
+ ${summaryMetric("Visitas programadas",nfmt(x.planned,st.week==="AVG"?1:0),"Programação semanal da fonte","visits")}
+ </div>
+ ${statusCard()}
+ <div class="hdBottomNote"><b>Regra do Console:</b> uma vaga é considerada preenchida quando existe PROMOTOR informado naquele SETOR / EQUIPE. O campo de status é exibido separadamente e divergências são sinalizadas, nunca corrigidas silenciosamente.</div></div>`;
 }
 function setRegion(r){
  if(!REGIONS[r])return;
@@ -341,8 +338,6 @@ function loadMap(){
    st.geo=j;st.geoError=false;refresh();
  }).catch(e=>{console.error("HARALD map",e);st.geoError=true;refresh();}).finally(()=>{st.gettingGeo=false;});
 }
-function hydrate(d){
- st.data=d;loadMap();
-}
+function hydrate(d){\n st.data=d;loadMap();\n}
 window.haraldDashboard={hydrate,render,afterRender,handleAction,getState:()=>({week:st.week,region:st.region,uf:st.uf})};
 })();
