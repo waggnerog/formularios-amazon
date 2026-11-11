@@ -99,9 +99,10 @@ function analyze({model=null,ufSet=null,activeOnly=false}={}){
  const actual=availableActuals(ctx.scenario,st.week,sectors,ufSet,maps);
  const assignedActual=availableActuals(ctx.scenario,st.week,activeTeams,ufSet,maps);
  const filledSectors=teams.filter(t=>maps.assigns.has(t.sector)).length;
+ const pendingSectorCount=new Set(storeRows.filter(x=>String(x.situation||"").trim()).map(x=>x.sector)).size;
  const missing=0,filledOpen=0;
  const byStatus={active:filledSectors,open:teams.length-filledSectors};
- return {filledSectors,filledOpen,sectors:teams.length,stores:countDistinctStores(storeRows),storesWithPromoter:storeRows.filter(x=>String(x.promoterName||"").trim()).length,links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
+ return {filledSectors,filledOpen,sectors:teams.length,stores:countDistinctStores(storeRows),storesWithPromoter:storeRows.filter(x=>String(x.promoterName||"").trim()).length,pendingSectors:pendingSectorCount,links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
 }
 function summaryMetric(label,value,help,accent=""){
  return `<article class="hdTopMetric ${accent}"><div class="hdTopMetricLabel">${esc(label)}</div><strong>${esc(value)}</strong><small>${esc(help)}</small></article>`;
@@ -184,7 +185,8 @@ function geographyDetails(){
  const set=geographicSet(),m=analyze({ufSet:set}),maps=getMaps();
  const mode=st.uf?"uf":st.region?"region":"national";
  const allRows=st.uf?m.teams.slice().sort((a,b)=>String(a.sector).localeCompare(String(b.sector),"pt-BR")):[];
- const matchesCoverage=sector=>st.coverageFilter==="all"||(st.coverageFilter==="active"?maps.assigns.has(sector):!maps.assigns.has(sector));
+ const pendingSectors=new Set(scopedStores().filter(x=>String(x.situation||"").trim()).map(x=>x.sector));
+ const matchesCoverage=sector=>st.coverageFilter==="all"||(st.coverageFilter==="active"?maps.assigns.has(sector):st.coverageFilter==="open"?!maps.assigns.has(sector):pendingSectors.has(sector));
  const rows=allRows.filter(team=>matchesCoverage(team.sector));
  const storeRows=(st.uf?scopedStores(new Set([st.uf])):[]).filter(store=>matchesCoverage(store.sector)).sort((a,b)=>String(a.n).localeCompare(String(b.n),"pt-BR"));
  const personRows=rows.map(team=>({team,who:activeInfo(team,maps)})).filter(x=>x.who);
@@ -195,7 +197,7 @@ function geographyDetails(){
  const sectorList=rows.map(team=>{
   const p=activeInfo(team,maps)?.person,status=p?"active":"open";
   const owner=p?.full_name||"Sem promotor · vaga aberta";
-  return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")} · ${nfmt(team.pdvs)} loja(s)</small><small>${esc(owner)}</small></span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
+  return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")} · ${nfmt(team.pdvs)} loja(s)</small><small>${esc(owner)}</small>${pendingSectors.has(team.sector)?'<small class="hdAttention">⚠ Pendência cadastral na fonte</small>':""}</span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
  }).join("");
  const storeList=storeRows.map(store=>{
   const assigned=maps.assigns.has(store.sector),status=assigned?"active":"open";
@@ -211,7 +213,7 @@ function geographyDetails(){
  let listHtml=mode==="uf"?(st.detailTab==="people"?peopleList:st.detailTab==="stores"?storeList:sectorList):areaRows;
  const listSize=mode==="uf"?(st.detailTab==="people"?uniquePeople.length:st.detailTab==="stores"?storeRows.length:rows.length):areaRows.length;
  const tabHeader=mode==="uf"?`<div class="hdDetailTabs" role="group" aria-label="Detalhar por setores, lojas ou promotores"><button data-hd-tab="sectors" aria-pressed="${st.detailTab==="sectors"}" class="${st.detailTab==="sectors"?"active":""}">Setores <span>${nfmt(rows.length)}</span></button><button data-hd-tab="stores" aria-pressed="${st.detailTab==="stores"}" class="${st.detailTab==="stores"?"active":""}">Lojas <span>${nfmt(storeRows.length)}</span></button><button data-hd-tab="people" aria-pressed="${st.detailTab==="people"}" class="${st.detailTab==="people"?"active":""}">Promotores <span>${nfmt(peopleIds.size)}</span></button></div>`:"";
- const coverageToolbar=mode==="uf"?`<div class="hdCoverageFilters" role="group" aria-label="Filtrar cobertura da operação">${[["all","Todos"],["active","ATIVO"],["open","VAGA OPEN"]].map(([value,label])=>`<button data-hd-coverage="${value}" aria-pressed="${st.coverageFilter===value}" class="${st.coverageFilter===value?"selected":""}">${label}</button>`).join("")}</div>`:"";
+ const coverageToolbar=mode==="uf"?`<div class="hdCoverageFilters" role="group" aria-label="Filtrar cobertura da operação">${[["all","Todos"],["active","ATIVO"],["open","VAGA OPEN"],["pending","Pendências"]].map(([value,label])=>`<button data-hd-coverage="${value}" aria-pressed="${st.coverageFilter===value}" class="${st.coverageFilter===value?"selected":""}">${label}</button>`).join("")}</div>`:"";
  const empty=mode==="uf"?(st.detailTab==="people"?"Nenhum promotor vinculado neste estado.":"Nenhum setor programado neste estado."):"Nenhum resultado.";
  return `<aside class="hdMapDetail" aria-label="Detalhes territoriais da operação">
  <div class="hdDetailFixed">
@@ -293,6 +295,7 @@ function render({scenario,contract,stores,teams,saved}){
  ${summaryMetric("Visitas programadas",nfmt(x.planned,st.week==="AVG"?1:0),"Programação da semana selecionada","visits")}
  ${summaryMetric("Média prevista / promotor",x.plannedAverage===null?"—":nfmt(x.plannedAverage,1),"Visitas planejadas nos setores ativos / promotores únicos","visits")}
  ${summaryMetric("Visitas realizadas","Sem dados","Execução ainda não publicada; não equiparar à programação","realized")}
+ ${summaryMetric("Setores com pendências",nfmt(x.pendingSectors),"Pendências cadastrais registradas na fonte; filtre por UF","average")}
  </div>
  ${statusCard()}
  <div class="hdBottomNote"><b>Regra do Console:</b> ATIVO significa setor com PROMOTOR vinculado; VAGA OPEN significa setor sem PROMOTOR. O status original permanece preservado na fonte, e o Console não altera a planilha.</div></div>`;
@@ -308,7 +311,7 @@ function setUf(uf){
 function refresh(){window.haraldApp?.refresh?.();}
 function handleAction(el){
  if(el.hasAttribute("data-hd-tab")){if(["sectors","stores","people"].includes(el.dataset.hdTab)){st.detailTab=el.dataset.hdTab;refresh();}return true;}
- if(el.hasAttribute("data-hd-coverage")){const v=el.dataset.hdCoverage;if(["all","active","open"].includes(v)){st.coverageFilter=v;refresh();}return true;}
+ if(el.hasAttribute("data-hd-coverage")){const v=el.dataset.hdCoverage;if(["all","active","open","pending"].includes(v)){st.coverageFilter=v;refresh();}return true;}
  if(el.hasAttribute("data-hd-week")){const v=el.dataset.hdWeek;if(["AVG","1","2"].includes(v)){st.week=v;refresh();}return true;}
  if(el.hasAttribute("data-hd-region")){setRegion(el.dataset.hdRegion);return true;}
  if(el.hasAttribute("data-hd-uf")){setUf(el.dataset.hdUf);return true;}
