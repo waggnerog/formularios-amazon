@@ -82,7 +82,7 @@ async function enter(){
 }
 
 async function loadData(){
- const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports]=await Promise.all([
+ const [sectorRows,assignmentRows,occupancies,persons,notes,timeline,privateRows,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports,sourceContracts]=await Promise.all([
   getAll("harald_sectors","source_details","is_current=eq.true"),
   getAll("harald_assignments","source_details"),
   getAll("harald_occupancies","id,scenario_code,sector_code,promoter_id,start_date,end_date,change_reason,source_name,created_at"),
@@ -94,7 +94,8 @@ async function loadData(){
   getAll("harald_sector_status","scenario_code,sector_code,status,source_status,effective_on,note,source_name,source_quality"),
   getAll("harald_sector_candidates","scenario_code,sector_code,full_name,phone,source_status,documentation_status,source_name,active_source_record"),
   getAll("harald_visit_actuals","scenario_code,sector_code,store_key,cycle_week,visit_date,promoter_id,result"),
-  getAll("harald_actual_imports","scenario_code,cycle_week,period_start,period_end,coverage_status,source_name,uploaded_at")
+  getAll("harald_actual_imports","scenario_code,cycle_week,period_start,period_end,coverage_status,source_name,uploaded_at"),
+  role==="admin"?getAll("harald_source_contracts","source_key,display_name,expected_file_name,updated_at,notes"):Promise.resolve([])
  ]);
  if(!sectorRows.length||!assignmentRows.length)throw Error("A base de lojas está vazia. Contate o administrador.");
  const people=new Map(persons.map(p=>[p.id,p])),ps={};promoterIds={};promoterNames={};personKeyToId={};
@@ -130,7 +131,7 @@ async function loadData(){
  setStatus("☁ Dados sincronizados");
  if(role==="viewer"){document.body.classList.add("haraldViewer");setStatus("Somente leitura");}
  window.haraldPeople?.hydrate({persons,occupancies,notes,timeline,privateRows,teams:visibleTeams,stores:visibleStores,role,api});
- window.haraldDashboard?.hydrate({persons,occupancies,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports,stores:visibleStores,teams:visibleTeams,role});
+ window.haraldDashboard?.hydrate({persons,occupancies,routeDays,sectorStatuses,sectorCandidates,actualVisits,actualImports,sourceContracts,stores:visibleStores,teams:visibleTeams,role});
  window.haraldApp?.refresh?.();
 }
 async function savePerson(sector,p){
