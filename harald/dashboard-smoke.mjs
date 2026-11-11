@@ -69,6 +69,9 @@ assert.ok(initial.includes('hdDonut'),'Gráfico circular de preenchimento ausent
 assert.ok(initial.includes('Distribuição por região'),'Barras regionais ausentes');
 assert.ok(initial.includes('Vagas preenchidas'),'KPI de preenchimento ausente');
 assert.ok(initial.includes('Promotores únicos'),'KPI de pessoas únicas ausente');
+assert.ok(initial.includes('Lojas com promotor'),'KPI de lojas com promotor ausente');
+assert.ok(initial.includes('Média prevista / promotor'),'Média de visitas programadas ausente');
+assert.ok(initial.includes('Visitas realizadas'),'Ausência de dados reais deve ser transparente');
 assert.ok(initial.includes('Regra de exibição'),'Regra de ocupação por vínculo deve ser visível');
 assert.ok(initial.includes('ATIVO · com promotor'),'Setores com vínculo devem ser ATIVO');
 assert.ok(initial.includes('VAGA OPEN · sem promotor'),'Setores sem vínculo devem ser VAGA OPEN');
@@ -102,6 +105,7 @@ assert.equal(app.getState().uf,'SP');
 assert.ok(ufHtml.includes('Setores do estado'));
 assert.ok(ufHtml.includes('GH2-SP-001'));
 assert.ok(ufHtml.includes('data-hd-tab="stores"'),'Aba de lojas da UF deve existir');
+assert.ok(ufHtml.includes('Lojas com promotor / total'),'O painel da UF deve diferenciar lojas de setores');
 assert.ok(ufHtml.includes('data-hd-coverage="open"'),'Filtro VAGA OPEN deve existir');
 assert.ok(app.handleAction({hasAttribute:n=>n==='data-hd-tab',dataset:{hdTab:'stores'}}));
 assert.ok(app.render(params).includes('data-hd-store="b"'),'Deve permitir abrir loja direto do mapa');
