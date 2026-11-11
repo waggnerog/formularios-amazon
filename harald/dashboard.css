@@ -392,3 +392,6 @@
 .horistaPersonInfo small{font-size:10px;color:#8693ac;line-height:1.45;overflow-wrap:anywhere}
 @media(max-width:1000px){.horistaPersonRow{grid-template-columns:minmax(140px,1.2fr) minmax(150px,1fr) minmax(85px,.45fr) minmax(120px,.65fr) 15px;gap:8px;padding:12px}}
 @media(max-width:750px){.horistaPersonRow{grid-template-columns:1fr 1fr 18px;gap:9px}.horistaPersonIdentity{grid-column:1/3}.horistaPersonRow>.horistaPersonInfo:nth-child(3){grid-column:1/2}.horistaPersonRow>.horistaPersonInfo:nth-child(4){grid-column:2/3}.horistaPersonRow>.sectorChevron{grid-column:3;grid-row:1/3;justify-self:end}}
+
+/* Indicador de providência cadastral sem misturar com status da vaga. */
+.hdDetailRowText .hdAttention{display:block;color:#ab6e21;font-size:10px;font-weight:850;background:#fff4e3;padding:4px 6px;border-radius:6px;margin-top:4px;width:fit-content}
