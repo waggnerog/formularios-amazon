@@ -120,6 +120,59 @@ function typeTable(){
  </tbody></table></div>
  <p class="hdTableFoot">*Ativos = cadastro com status ATIVO e data de início atingida, sem confirmação de presença em campo. As médias por ativo (programada e realizada) consideram <b>somente as visitas dos setores desses profissionais</b>. Setores ainda sem cadastro entram no total planejado, mas não na média por promotor. As duas semanas formam um ciclo de planejamento, não duas operações para somar.</p></section>`;
 }
+function sourceContract(key){
+ return (st.data?.sourceContracts||[]).find(x=>x.source_key===key)||null;
+}
+function horistaVisuals(){
+ const h=analyze({model:"HORISTA"});
+ const total=h.sectors||0;
+ const active=h.statuses.active||0,hired=h.statuses.hired||0,onboarding=h.statuses.onboarding||0,open=h.statuses.open||0,pending=h.missing||0;
+ const filled=active+hired;
+ const pct=n=>total?Math.max(0,Math.min(100,(n/total)*100)):0;
+ const pFilled=pct(filled),pOnboarding=pct(onboarding),pOpen=pct(open),pPending=pct(pending);
+ const a=pFilled,b=a+pOnboarding,c=b+pOpen,d=Math.min(100,c+pPending);
+ const donut=`background:conic-gradient(#5aa991 0 ${a.toFixed(2)}%,#8987d8 ${a.toFixed(2)}% ${b.toFixed(2)}%,#e2a45b ${b.toFixed(2)}% ${c.toFixed(2)}%,#cbd3e2 ${c.toFixed(2)}% ${d.toFixed(2)}%,#eef2f8 ${d.toFixed(2)}% 100%)`;
+ const regions=Object.entries(REGIONS).map(([name,ufs])=>{
+   const x=analyze({model:"HORISTA",ufSet:new Set(ufs)});
+   const done=(x.statuses.active||0)+(x.statuses.hired||0);
+   return {name,total:x.sectors,filled:done,onboarding:x.statuses.onboarding||0,open:x.statuses.open||0,pct:x.sectors?done/x.sectors*100:0};
+ }).sort((x,y)=>y.total-x.total);
+ const maxRegion=Math.max(1,...regions.map(x=>x.total));
+ const contract=sourceContract("horista"),notes=contract?.notes||{};
+ const sourceUrl=notes.source_chat_url||"https://chatgpt.com/share/6af460f2-e37c-83e9-b593-ee27a36b1999";
+ const sourceLabel=contract?.display_name||"Controle Operacional de Horistas";
+ const officialFile=contract?.expected_file_name||"GENIALE_HARALD_Controle_Operacional_Horistas_ATUALIZADO.xlsx";
+ return `<section class="hdCard hdHoristaCard" aria-labelledby="hdHoristaTitle">
+ <div class="hdCardHead hdHoristaHead"><div><span class="hdEyebrow">02 · COBERTURA HORISTA</span><h2 id="hdHoristaTitle">Vagas Horistas</h2><p>Leitura rápida da capacidade, preenchimento e distribuição regional.</p></div><a class="hdSourceLink" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer"><span>Fonte oficial</span><b>${esc(sourceLabel)}</b><small>${esc(officialFile)}</small></a></div>
+ <div class="hdHoristaGrid">
+   <div class="hdDonutPanel">
+     <div class="hdDonutWrap"><div class="hdDonut" style="${donut}" role="img" aria-label="${nfmt(filled)} de ${nfmt(total)} vagas Horistas preenchidas"><div class="hdDonutCenter"><strong>${nfmt(total)}</strong><span>vagas</span></div></div></div>
+     <div class="hdDonutPrimary"><span>Preenchidas</span><strong>${nfmt(filled)}</strong><small>${nfmt(pFilled,1)}% do total</small></div>
+     <div class="hdLegendGrid">
+       <div><i class="filled"></i><span>Ativo + Contratado</span><b>${nfmt(filled)}</b></div>
+       <div><i class="onboarding"></i><span>Em admissão</span><b>${nfmt(onboarding)}</b></div>
+       <div><i class="open"></i><span>Vaga Open</span><b>${nfmt(open)}</b></div>
+       ${pending?`<div><i class="pending"></i><span>Aguardando fonte</span><b>${nfmt(pending)}</b></div>`:""}
+     </div>
+   </div>
+   <div class="hdHoristaStatus">
+     <div class="hdMiniKpis">
+       <div><span>Total de vagas</span><strong>${nfmt(total)}</strong><small>Capacidade aprovada</small></div>
+       <div><span>Preenchidas</span><strong>${nfmt(filled)}</strong><small>Ativo + Contratado</small></div>
+       <div><span>Em processo</span><strong>${nfmt(onboarding)}</strong><small>Em admissão</small></div>
+       <div><span>Disponíveis</span><strong>${nfmt(open)}</strong><small>Vaga Open</small></div>
+     </div>
+     <div class="hdStatusFlow" aria-label="Composição das vagas Horistas">
+       ${[["Ativo",active,"active"],["Contratado",hired,"hired"],["Em admissão",onboarding,"onboarding"],["Vaga Open",open,"open"]].map(([label,value,cls])=>`<div class="hdFlowRow"><span>${label}</span><div class="hdFlowTrack"><i class="${cls}" style="width:${pct(value).toFixed(2)}%"></i></div><b>${nfmt(value)}</b></div>`).join("")}
+     </div>
+   </div>
+ </div>
+ <div class="hdRegionBars"><div class="hdRegionBarsHead"><div><b>Distribuição por região</b><span>Barra = total de vagas · preenchimento destacado</span></div><small>${nfmt(total)} vagas no Brasil</small></div>
+ ${regions.map(r=>`<div class="hdRegionBarRow"><span class="hdRegionName">${esc(r.name)}</span><div class="hdRegionTrack" title="${nfmt(r.filled)} preenchidas de ${nfmt(r.total)}"><i class="capacity" style="width:${Math.max(1,r.total/maxRegion*100)}%"><em class="filled" style="width:${r.total?r.filled/r.total*100:0}%"></em></i></div><span class="hdRegionValue"><b>${nfmt(r.total)}</b><small>${nfmt(r.filled)} preenchidas</small></span></div>`).join("")}
+ </div>
+ <div class="hdHoristaNote"><b>Como ler:</b> “Preenchida” significa vaga com status <b>Ativo</b> ou <b>Contratado</b>. “Em admissão” aparece separado para não inflar o preenchimento. Cadastros de pessoas sem vínculo de setor não contam como vaga preenchida.</div>
+ </section>`;
+}
 function statusCard(){
  const x=analyze();
  const cards=[["active","Ativo"],["open","Vaga Open"],["onboarding","Em admissão"],["hired","Contratado"]];
@@ -226,7 +279,8 @@ function render({scenario,contract,stores,teams,saved}){
  return `<div class="hdDashboard"><div class="hdDashHero"><div><span>PAINEL NACIONAL · GENIALE / HARALD</span><h1>Visão geral da operação</h1><p>${complete?"Operação completa · Start 1 + Start 2":"Etapa inicial · Start 1"} · números reais do planejamento e cadastros verificados.</p></div><button type="button" data-hd-refresh class="hdRefresh">↻ Atualizar painel</button></div>
  <div class="hdToolbar"><div><span class="hdEyebrow">PERÍODO DO ROTEIRO</span><div class="hdWeekTabs">${[["AVG","Média semanal"],["1","Semana 1"],["2","Semana 2"]].map(([id,label])=>`<button data-hd-week="${id}" class="${st.week===id?"active":""}" aria-pressed="${st.week===id}">${label}</button>`).join("")}</div></div><p>As duas semanas são alternativas do ciclo de programação. A média semanal não soma duas semanas como se fossem um único período.</p></div>
  ${brazilMap()}
- <div class="hdSectionHeading"><div><span class="hdEyebrow">02 · O QUE OS DADOS MOSTRAM?</span><h2>Indicadores da operação</h2></div><p>Planejamento, promotores cadastrados e execução.</p></div>
+ ${scenario==="C2"&&contract==="ALL"?horistaVisuals():""}
+ <div class="hdSectionHeading"><div><span class="hdEyebrow">03 · O QUE OS DADOS MOSTRAM?</span><h2>Indicadores da operação</h2></div><p>Planejamento, promotores cadastrados e execução.</p></div>
  <div class="hdTopMetrics">
  ${summaryMetric("Lojas planejadas",nfmt(x.stores),"PDVs distintos no cenário","stores")}
  ${summaryMetric("Setores / vagas",nfmt(x.sectors),"Roteiros permanentes no cenário","sectors")}
