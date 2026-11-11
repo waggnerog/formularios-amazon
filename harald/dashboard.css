@@ -268,3 +268,70 @@
 /* Rótulo de setor: área de toque generosa e redução de ruído fora da região. */
 .hdMapLabel.dimmed{opacity:.36}
 .hdMapLabel .hdMapLabelHit,.hdMapLabel:hover .hdMapLabelHit,.hdMapLabel:focus .hdMapLabelHit,.hdMapLabel.selected .hdMapLabelHit{fill:transparent;stroke:none;filter:none}
+
+/* V3.2 · Cobertura Horista — leitura visual rápida */
+.hdHoristaCard{border-color:#dfe6f3;background:linear-gradient(180deg,#fff 0%,#fbfcff 100%)}
+.hdHoristaHead{align-items:center}
+.hdSourceLink{display:flex;flex-direction:column;gap:3px;min-width:250px;max-width:360px;padding:11px 13px;border:1px solid #dfe5f1;background:#f6f8fd;border-radius:12px;text-decoration:none;color:#53627f;transition:border-color .15s,background .15s}
+.hdSourceLink:hover{border-color:#969edb;background:#f1f3ff}
+.hdSourceLink>span{font-size:9px;font-weight:900;letter-spacing:.9px;color:#7f89ac;text-transform:uppercase}
+.hdSourceLink>b{font-size:11px;color:#46568d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdSourceLink>small{font-size:9px;color:#929db0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdHoristaGrid{display:grid;grid-template-columns:minmax(310px,.85fr) minmax(0,1.15fr);gap:16px;margin-bottom:17px}
+.hdDonutPanel,.hdHoristaStatus{border:1px solid #e7ecf4;background:#fff;border-radius:15px;padding:17px;min-width:0}
+.hdDonutPanel{display:grid;grid-template-columns:160px minmax(0,1fr);grid-template-rows:auto 1fr;gap:12px 17px;align-items:center}
+.hdDonutWrap{grid-row:1/3;display:grid;place-items:center}
+.hdDonut{width:145px;height:145px;border-radius:50%;display:grid;place-items:center;position:relative;box-shadow:inset 0 0 0 1px #e5e9f1}
+.hdDonut:after{content:"";position:absolute;width:91px;height:91px;background:#fff;border-radius:50%;box-shadow:0 0 0 1px #edf0f5}
+.hdDonutCenter{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center}
+.hdDonutCenter strong{font-size:31px;color:#2f426f;letter-spacing:-1px;line-height:1}
+.hdDonutCenter span{font-size:10px;color:#8d99ad;margin-top:4px;text-transform:uppercase;letter-spacing:.7px;font-weight:850}
+.hdDonutPrimary{display:flex;flex-direction:column;align-items:flex-start}
+.hdDonutPrimary>span{font-size:10px;color:#8591a8;text-transform:uppercase;letter-spacing:.7px;font-weight:850}
+.hdDonutPrimary>strong{font-size:31px;color:#39856f;line-height:1;margin:6px 0 4px}
+.hdDonutPrimary>small{font-size:10px;color:#8d98a9}
+.hdLegendGrid{display:grid;gap:7px;align-self:end}
+.hdLegendGrid>div{display:grid;grid-template-columns:10px 1fr auto;gap:7px;align-items:center;font-size:10px;color:#748098}
+.hdLegendGrid i{width:8px;height:8px;border-radius:50%}
+.hdLegendGrid i.filled{background:#5aa991}.hdLegendGrid i.onboarding{background:#8987d8}.hdLegendGrid i.open{background:#e2a45b}.hdLegendGrid i.pending{background:#cbd3e2}
+.hdLegendGrid b{font-size:11px;color:#4d5b7d}
+.hdMiniKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:17px}
+.hdMiniKpis>div{padding:12px 10px;border-radius:10px;background:#f7f9fd;border:1px solid #ebeff7;min-width:0}
+.hdMiniKpis span{display:block;color:#7e8ba4;font-size:10px;font-weight:780}
+.hdMiniKpis strong{display:block;color:#33477d;font-size:24px;line-height:1;margin:8px 0 5px}
+.hdMiniKpis small{display:block;color:#98a2b3;font-size:9px;line-height:1.35}
+.hdStatusFlow{display:grid;gap:10px}
+.hdFlowRow{display:grid;grid-template-columns:90px minmax(0,1fr) 34px;gap:9px;align-items:center}
+.hdFlowRow>span{font-size:10px;font-weight:780;color:#71809b}
+.hdFlowRow>b{font-size:11px;text-align:right;color:#4b5c7d}
+.hdFlowTrack{height:8px;border-radius:999px;background:#eef1f6;overflow:hidden}
+.hdFlowTrack i{display:block;height:100%;border-radius:inherit;min-width:0}
+.hdFlowTrack i.active{background:#4ca287}.hdFlowTrack i.hired{background:#5ea9b5}.hdFlowTrack i.onboarding{background:#8987d8}.hdFlowTrack i.open{background:#e2a45b}
+.hdRegionBars{border:1px solid #e7ebf4;background:#fff;border-radius:15px;padding:16px 17px}
+.hdRegionBarsHead{display:flex;justify-content:space-between;align-items:end;gap:10px;margin-bottom:13px}
+.hdRegionBarsHead>div{display:flex;flex-direction:column;gap:3px}
+.hdRegionBarsHead b{font-size:12px;color:#3e4f79}
+.hdRegionBarsHead span,.hdRegionBarsHead small{font-size:10px;color:#8a97aa}
+.hdRegionBarRow{display:grid;grid-template-columns:105px minmax(0,1fr) 105px;gap:10px;align-items:center;padding:7px 0}
+.hdRegionName{font-size:10px;font-weight:800;color:#5f6f8d}
+.hdRegionTrack{height:11px;border-radius:999px;background:#f0f2f7;overflow:hidden}
+.hdRegionTrack>.capacity{position:relative;display:block;height:100%;background:#dbe2ef;border-radius:inherit;overflow:hidden}
+.hdRegionTrack>.capacity>.filled{position:absolute;inset:0 auto 0 0;display:block;background:#5aa991;border-radius:inherit}
+.hdRegionValue{display:flex;justify-content:flex-end;align-items:baseline;gap:6px;white-space:nowrap}
+.hdRegionValue b{font-size:12px;color:#46577b}.hdRegionValue small{font-size:9px;color:#97a2b3}
+.hdHoristaNote{margin-top:12px;padding:12px 14px;border-radius:10px;background:#f5f7fc;color:#78869d;font-size:10px;line-height:1.6}
+.hdHoristaNote b{color:#53638d}
+@media(max-width:980px){
+ .hdHoristaGrid{grid-template-columns:1fr}
+ .hdMiniKpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:680px){
+ .hdHoristaHead{align-items:flex-start}
+ .hdSourceLink{min-width:0;width:100%;max-width:none}
+ .hdDonutPanel{grid-template-columns:130px minmax(0,1fr);gap:10px}
+ .hdDonut{width:120px;height:120px}.hdDonut:after{width:76px;height:76px}
+ .hdDonutCenter strong{font-size:27px}
+ .hdMiniKpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .hdRegionBarRow{grid-template-columns:85px minmax(0,1fr) 88px}
+ .hdRegionValue{display:block;text-align:right}.hdRegionValue small{display:block;margin-top:2px}
+}
