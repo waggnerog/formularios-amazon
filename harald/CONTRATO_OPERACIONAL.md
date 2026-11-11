@@ -29,7 +29,7 @@ Atualizado em 11/11/2026. Documento de referência consolidado a partir das deci
 - **Vagas abertas** = setores totais menos setores ativos.
 - **Promotores únicos** = nomes normalizados distintos, evitando linhas duplicadas para várias lojas e setores.
 - **Lojas com promotor informado** = linhas individuais em que `PROMOTOR` está preenchido. **Não é** a mesma métrica que setores ativos.
-- Exibir no mapa `setores ativos / setores totais` por UF. Dentro da UF, distinguir também `lojas com promotor / lojas totais`, com aba Setores, Lojas e Promotores e filtro Todos/ATIVO/VAGA OPEN.
+- Exibir no mapa `setores ativos / setores totais` por UF. Dentro da UF, distinguir também `lojas com promotor / lojas totais`, com aba Setores, Lojas e Promotores e filtros Todos/ATIVO/VAGA OPEN/Pendências cadastrais.
 - Rótulos de status no Console têm **apenas ATIVO e VAGA OPEN**, conforme decisão mais recente. Status histórico da planilha (`EM ADMISSÃO`, `FECHADO`, `CONTRATADO`, `VAGA ABERTA`) permanece na origem e não determina ocupação.
 - `VAGA ABERTA` é alias de `VAGA OPEN` e `FECHADO` de `CONTRATADO` **apenas na normalização do campo de origem**; vazio permanece não informado no banco.
 - **Visitas realizadas** não podem ser derivadas dos dias da sistemática, de `TOTAL VISITAS 1ª SEM` ou dos nomes cadastrados. São medidas distintas.
