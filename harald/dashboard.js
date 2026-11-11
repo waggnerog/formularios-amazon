@@ -199,7 +199,7 @@ function geographyDetails(){
  const sectorList=rows.map(team=>{
   const p=activeInfo(team,maps)?.person, statusRow=maps.statuses.get(team.sector),status=statusRow?.status,candidates=maps.candidates.get(team.sector)||[];
   const candidate=candidates[0];
-  const owner=p?.full_name||(candidate?(status==="filled"?"Definido: ":"Em tratativa: ")+candidate.full_name:"Promotor não cadastrado");
+  const owner=p?.full_name||(candidate?(status==="hired"?"Contratado: ":status==="onboarding"?"Em admissão: ":"Candidato: ")+candidate.full_name:"Promotor não cadastrado");
   return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")}</small><small>${esc(owner)}</small></span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
  }).join("");
  const uniquePeople=[...new Map(personRows.map(v=>[v.who.person.id,v])).values()];
