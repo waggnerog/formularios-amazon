@@ -186,13 +186,36 @@ function renderTeams(){
  ${shown.length<all.length?`<div class="paginator"><button class="btn" data-more>Exibir mais ${fmt(Math.min(50,all.length-shown.length))} setores ${ICON("arrow")}</button></div>`:""}${footer()}`;
 }
 function renderPeople(){
- const all=visibleTeams(),shown=all.slice(0,state.pageNo*50);
- return `${pageHead("Promotores e contatos","Consulta por setor e promotor, em lista. Clique na linha para abrir a ficha e acessar Equipe e histórico.",
- `<div class="row wrap"><button class="btn" id="exportContacts">${ICON("download")} Exportar contatos CSV</button></div>`)}
- ${filterTeams()}${listSummary(all,scopedTeams().length)}${sectorListHeader()}
- <div class="sectorList" aria-label="Lista de promotores por setor">${shown.map(teamCard).join("")}</div>
- ${!shown.length?empty("Nenhum registro encontrado","Revise o filtro Com contato / Sem contato."):""}
- ${shown.length<all.length?`<div class="paginator"><button class="btn" data-more>Mostrar mais setores ${ICON("arrow")}</button></div>`:""}${footer()}`;
+  const groups=new Map(),allStores=scopedStores();
+  for(const team of scopedTeams()){
+    if(state.uf&&team.uf!==state.uf)continue;
+    const record=promoter(team.sector),name=String(record.name||"").trim();
+    if(!name)continue;
+    const key=norm(name).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+    if(!groups.has(key))groups.set(key,{id:"horista:"+key,name,phone:record.phone||"",sectors:new Set(),ufs:new Set()});
+    const item=groups.get(key);item.sectors.add(team.sector);item.ufs.add(team.uf);
+    if(!item.phone&&record.phone)item.phone=record.phone;
+  }
+  const q=norm(state.search.trim()),items=[...groups.values()].map(p=>({...p,sectors:[...p.sectors].sort(),ufs:[...p.ufs].sort(),shops:allStores.filter(x=>p.sectors.has(x.sector)).length})).filter(p=>
+    (state.contact==="ALL"||(state.contact==="WITH"?validPhone(p.phone):!validPhone(p.phone)))&&
+    (!q||norm([p.name,p.phone,p.sectors.join(" "),p.ufs.join(" ")].join(" ")).includes(q))
+  ).sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
+  const shown=items.slice(0,state.pageNo*50);
+  return `${pageHead("Promotores","Uma linha por promotor, com todos os setores e lojas vinculados.",`<button class="btn" id="exportContacts">${ICON("download")} Exportar contatos CSV</button>`)}
+  <div class="filters"><div class="filterLabel">${ICON("filter")} Filtrar promotores</div>
+  <select class="select" data-filter="contact" aria-label="Filtrar promotores por contato">
+  <option value="ALL" ${state.contact==="ALL"?"selected":""}>Todos os contatos</option>
+  <option value="WITH" ${state.contact==="WITH"?"selected":""}>Com WhatsApp</option>
+  <option value="WITHOUT" ${state.contact==="WITHOUT"?"selected":""}>Sem WhatsApp</option></select>
+  <span class="count">${fmt(items.length)} promotores · ${fmt(items.reduce((n,p)=>n+p.sectors.length,0))} vínculos</span></div>
+  <div class="horistaPersonList">${shown.map(p=>`<button class="horistaPersonRow" type="button" data-open-person="${escapeHtml(p.id)}" aria-label="Abrir ficha completa de ${escapeHtml(p.name)}">
+  <span class="horistaPersonIdentity"><span class="sectorAvatar">${escapeHtml(initial(p.name))}</span><strong>${text(p.name)}</strong></span>
+  <span class="horistaPersonInfo"><b>${fmt(p.sectors.length)} setor(es)</b><small>${p.sectors.map(x=>text(x)).join(" · ")}</small></span>
+  <span class="horistaPersonInfo"><b>${fmt(p.shops)} loja(s)</b><small>${text(p.ufs.join(" · "))}</small></span>
+  <span class="horistaPersonInfo"><b>${validPhone(p.phone)?"Com WhatsApp":"Sem WhatsApp"}</b><small>${validPhone(p.phone)?text(p.phone):"Contato não informado"}</small></span>
+  <span class="sectorChevron" aria-hidden="true">›</span></button>`).join("")}</div>
+  ${!shown.length?empty("Nenhum promotor encontrado","Confira os filtros e a busca."):""}
+  ${shown.length<items.length?`<div class="paginator"><button class="btn" data-more>Mostrar mais promotores</button></div>`:""}${footer()}`;
 }
 function footer(){return `<div class="footnote">Fonte oficial: Controle Operacional Horistas.xlsx · aba Controle Operacional · dados publicados no Supabase.</div>`}
 function renderRoutes(){const all=scopedTeams(),sel=all.find(t=>t.sector===state.routeSector)||all[0];if(!sel)return `${pageHead('Roteiro semanal','Sem setores nesta seleção')}${empty('Nenhum setor selecionado','Altere o filtro de equipe acima.')}`;if(state.routeSector!==sel.sector)state.routeSector=sel.sector;const l=scopedStores().filter(x=>x.sector===sel.sector),w=state.week;const eachDay=WEEKDAYS.map(day=>({day,stores:l.filter(x=>parseDays(x['w'+w]).includes(day))}));const today=eachDay.find(x=>x.day===state.day)?.stores||[];const weekUnique=l.filter(s=>parseDays(s['w'+w]).length),activeCount=eachDay.filter(x=>x.stores.length).length;return `${pageHead('Roteiro de visitas','Escolha a semana e veja claramente os dias COM VISITA ou SEM VISITA.')}<div class="routeToolbar"><div class="row wrap"><span class="filterLabel">${ICON('layers')} Setor</span><select class="select" id="routeSector" aria-label="Escolher setor" style="min-width:210px;max-width:320px">${all.map(x=>`<option value="${escapeHtml(x.sector)}" ${x.sector===sel.sector?'selected':''}>${text(x.sector)} · ${text(x.uf)}</option>`).join('')}</select></div><div class="weekToggle"><button data-week="1" class="${w===1?'active':''}" aria-pressed="${w===1}">Semana 1</button><button data-week="2" class="${w===2?'active':''}" aria-pressed="${w===2}">Semana 2</button></div></div><div class="routeGuide"><div><span class="guideEyebrow">PROGRAMAÇÃO DO SETOR</span><strong>${text(sel.sector)}</strong><small>${text(sel.cities)} · ${fmt(l.length)} lojas no setor</small></div><div class="routeGuideKpis"><span><b>${fmt(weekUnique.length)}</b> lojas com dia informado na semana ${w}</span><span><b>${activeCount}/6</b> dias com visitas planejadas</span></div></div><div class="routeLegend"><span><i class="legendDot filled"></i> Com atendimento</span><span><i class="legendDot emptyDot"></i> Sem visita planejada</span></div><div class="dayTabs">${eachDay.map(({day,stores},i)=>`<button class="dayBtn ${stores.length?'hasVisits':'noVisits'} ${state.day===day?'active':''}" data-day="${day}" aria-pressed="${state.day===day}"><strong>${WEEKLABEL[i]}</strong><span class="dayStatus">${stores.length?'✓ COM VISITA':'— SEM VISITA'}</span><span class="dayQuantity">${stores.length?`${stores.length} ${stores.length===1?'loja':'lojas'}`:'0 lojas'}</span></button>`).join('')}</div><div class="attendancePanel ${today.length?'yes':'no'}"><span class="attendanceIcon">${today.length?'✓':'—'}</span><div><small>${WEEKLABEL[WEEKDAYS.indexOf(state.day)].toUpperCase()} · SEMANA ${w}</small><h2>${today.length?`ATENDIMENTO PROGRAMADO · ${today.length} ${today.length===1?'LOJA':'LOJAS'}`:'SEM VISITA PROGRAMADA'}</h2><p>${today.length?`${fmt(today.reduce((a,x)=>a+Number(x.visitH||0),0),1)}h estimadas de atendimento nas lojas abaixo.`:'Nenhuma loja possui visita registrada para este dia no ciclo selecionado. Confira outro dia ou outra semana.'}</p></div></div>${today.length?`<div class="routeLine">${today.map((s,i)=>`<div class="routeStop"><div class="routeNumber">${String(i+1).padStart(2,'0')}</div><div class="routeContent"><div class="routeInfo"><h3>${text(s.n)}</h3><p>${text(s.b)} · ${text(s.city)} / ${text(s.uf)} · ${text(s.end)}</p><small class="routeStoreSector">Setor ${text(s.sector)} · ${badgeModel(s.model)}</small></div><div class="routeBadges">${badgePri(s.pri)}<span class="pill soft">${fmt(s.visitH,1)}h por visita</span><button class="btn primary sm" data-open-store="${escapeHtml(s.id)}">Ficha / anotações ${ICON('chevron')}</button></div></div></div>`).join('')}</div>`:''}<p class="mini routeFootInfo">As informações são <b>planejadas</b>, não confirmação de presença. Dias extraídos de “DIAS SEMANA 1/2” da base; a lista não representa sequência otimizada de deslocamento.</p>${footer()}`}
@@ -256,7 +279,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('button,a');if(!
  if(window.haraldDashboard?.handleAction(el))return;
  if(el.id==='managePeople'){if(window.haraldPeople)window.haraldPeople.openSector(state.drawer?.sector||'',state.scenario);return}
  if(el.dataset.quickWhatsapp){quickWhatsapp(el.dataset.quickWhatsapp);return}if(el.dataset.jump){document.getElementById(el.dataset.jump)?.scrollIntoView({behavior:'smooth',block:'center'});document.getElementById(el.dataset.jump)?.focus();return}if(el.dataset.contract){setContract(el.dataset.contract);return}if(el.dataset.saveNote){saveScopedNote(el.dataset.saveNote);return}if(el.dataset.nav){setPage(el.dataset.nav);return}if(el.dataset.go){setPage(el.dataset.go);return}if(el.dataset.scenario){setScenario(el.dataset.scenario);return}
- if(el.dataset.openStore){const s=getStore(el.dataset.openStore);if(s)storeDrawer(s);return}if(el.dataset.openTeam){const t=teamById(el.dataset.openTeam);if(t)teamDrawer(t);return}
+ if(el.dataset.openPerson){window.haraldPeople?.openPerson(el.dataset.openPerson);return}if(el.dataset.openStore){const s=getStore(el.dataset.openStore);if(s)storeDrawer(s);return}if(el.dataset.openTeam){const t=teamById(el.dataset.openTeam);if(t)teamDrawer(t);return}
  if(el.dataset.routeTeam){state.routeSector=el.dataset.routeTeam;state.week=1;state.day='SEG';closeDrawer();setPage('routes');return}
  if(el.dataset.fav){toggleFav(el.dataset.fav);return}if(el.dataset.more!==undefined){state.pageNo++;render();return}if(el.hasAttribute('data-clear-filters')){cleanFilters();return}if(el.id==='favoriteOnly'){state.onlyFavorites=!state.onlyFavorites;state.pageNo=1;render();return}
  if(el.dataset.week){state.week=Number(el.dataset.week);render();return}if(el.dataset.day){state.day=el.dataset.day;render();return}
