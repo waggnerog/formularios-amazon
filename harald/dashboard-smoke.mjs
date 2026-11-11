@@ -73,8 +73,8 @@ assert.ok(initial.includes('Qualidade da fonte'),'Alerta de inconsistências da 
 assert.ok(initial.includes('Vaga Open'),'Status da fonte deve ser exibido separadamente');
 assert.ok(initial.includes('Contratado'),'Status Contratado ausente');
 assert.ok(initial.includes('Sem status'),'Ausência de status deve ser visível');
-assert.ok(!initial.includes('Fulltime (CLT)'),'Console Horista não deve exibir Fulltime');
-assert.ok(!initial.includes('Parttime (CLT)'),'Console Horista não deve exibir Parttime');
+assert.ok(!initial.includes('ABERTURA POR TIPO DE EQUIPE'),'Console Horista não deve exibir comparativo CLT/Horista');
+assert.ok(!initial.includes('Indicadores separados por modelo'),'Console Horista deve operar como uma única modalidade');
 assert.ok(initial.includes('hdBrazilSVG'),'Mapa com GeoJSON deve carregar');
 assert.equal((initial.match(/<path class="hdMapUF /g)||[]).length,27,'27 estados devem ter territórios clicáveis');
 assert.equal((initial.match(/<g class="hdMapLabel /g)||[]).length,27,'27 estados devem ter etiquetas');
