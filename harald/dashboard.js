@@ -143,7 +143,7 @@ function horistaVisuals(){
  const sourceLabel=contract?.display_name||"Controle Operacional de Horistas";
  const officialFile=contract?.expected_file_name||"GENIALE_HARALD_Controle_Operacional_Horistas_ATUALIZADO.xlsx";
  return `<section class="hdCard hdHoristaCard" aria-labelledby="hdHoristaTitle">
- <div class="hdCardHead hdHoristaHead"><div><span class="hdEyebrow">02 · COBERTURA HORISTA</span><h2 id="hdHoristaTitle">Vagas Horistas</h2><p>Leitura rápida da capacidade, preenchimento e distribuição regional.</p></div><a class="hdSourceLink" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer"><span>Fonte oficial</span><b>${esc(sourceLabel)}</b><small>${esc(officialFile)}</small></a></div>
+ <div class="hdCardHead hdHoristaHead"><div><span class="hdEyebrow">02 · COBERTURA HORISTA</span><h2 id="hdHoristaTitle">Vagas Horistas</h2><p>Leitura rápida da capacidade, preenchimento e distribuição regional.</p></div><a class="hdSourceLink" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer"><span>Fonte oficial · atualização manual</span><b>${esc(sourceLabel)}</b><small>${esc(officialFile)}</small></a></div>
  <div class="hdHoristaGrid">
    <div class="hdDonutPanel">
      <div class="hdDonutWrap"><div class="hdDonut" style="${donut}" role="img" aria-label="${nfmt(filled)} de ${nfmt(total)} vagas Horistas preenchidas"><div class="hdDonutCenter"><strong>${nfmt(total)}</strong><span>vagas</span></div></div></div>
@@ -170,7 +170,7 @@ function horistaVisuals(){
  <div class="hdRegionBars"><div class="hdRegionBarsHead"><div><b>Distribuição por região</b><span>Barra = total de vagas · preenchimento destacado</span></div><small>${nfmt(total)} vagas no Brasil</small></div>
  ${regions.map(r=>`<div class="hdRegionBarRow"><span class="hdRegionName">${esc(r.name)}</span><div class="hdRegionTrack" title="${nfmt(r.filled)} preenchidas de ${nfmt(r.total)}"><i class="capacity" style="width:${Math.max(1,r.total/maxRegion*100)}%"><em class="filled" style="width:${r.total?r.filled/r.total*100:0}%"></em></i></div><span class="hdRegionValue"><b>${nfmt(r.total)}</b><small>${nfmt(r.filled)} preenchidas</small></span></div>`).join("")}
  </div>
- <div class="hdHoristaNote"><b>Como ler:</b> “Preenchida” significa vaga com status <b>Ativo</b> ou <b>Contratado</b>. “Em admissão” aparece separado para não inflar o preenchimento. Cadastros de pessoas sem vínculo de setor não contam como vaga preenchida.</div>
+ <div class="hdHoristaNote"><b>Como ler:</b> “Preenchida” significa vaga com status <b>Ativo</b> ou <b>Contratado</b>. “Em admissão” aparece separado para não inflar o preenchimento. Cadastros de pessoas sem vínculo de setor não contam como vaga preenchida. <b>Os números exibidos são os últimos dados efetivamente processados no Supabase.</b></div>
  </section>`;
 }
 function statusCard(){
