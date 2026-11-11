@@ -22,12 +22,10 @@ const UF_NAMES={
  RR:"Roraima",SC:"Santa Catarina",SP:"São Paulo",SE:"Sergipe",TO:"Tocantins"
 };
 const STATUS={
- active:{label:"Ativo",cls:"active"},
- open:{label:"Vaga Open",cls:"open"},
- onboarding:{label:"Em admissão",cls:"onboarding"},
- hired:{label:"Contratado",cls:"hired"}
+ active:{label:"ATIVO",cls:"active"},
+ open:{label:"VAGA OPEN",cls:"open"}
 };
-const st={geo:null,geoError:false,gettingGeo:false,week:"AVG",region:null,uf:null,detailTab:"sectors",data:null,ctx:null};
+const st={geo:null,geoError:false,gettingGeo:false,week:"AVG",region:null,uf:null,coverageFilter:"all",detailTab:"sectors",data:null,ctx:null};
 const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const nfmt=(n,decimal=0)=>Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:decimal,maximumFractionDigits:decimal});
 const today=()=>new Intl.DateTimeFormat("sv-SE",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
@@ -59,8 +57,8 @@ function activeInfo(team,maps){
  const link=maps.assigns.get(team.sector);if(!link)return null;
  const person=maps.persons.get(link.promoter_id);
  if(!person)return null;
- const isActive=String(person.status||"").trim().toUpperCase()==="ATIVO"&&String(link.start_date||"")<=today();
- return {person,link,isActive,isUpcoming:!!link.start_date&&link.start_date>today()};
+ // O vínculo oficial define ocupação; status cadastral e data não removem o promotor do mapa.
+ return {person,link,isActive:true,isUpcoming:false};
 }
 function availableActuals(sc,week,allowedSectorCodes,ufSet,maps){
  const dataset=st.data||{},imports=dataset.actualImports||[];
@@ -100,10 +98,9 @@ function analyze({model=null,ufSet=null,activeOnly=false}={}){
  const planned=selectCount(days),plannedAssigned=selectCount(days.filter(x=>activeTeams.has(x.sector_code)));
  const actual=availableActuals(ctx.scenario,st.week,sectors,ufSet,maps);
  const assignedActual=availableActuals(ctx.scenario,st.week,activeTeams,ufSet,maps);
- const missing=teams.filter(t=>!maps.statuses.has(t.sector)).length;
- const byStatus=Object.fromEntries(Object.keys(STATUS).map(k=>[k,teams.filter(t=>maps.statuses.get(t.sector)?.status===k).length]));
  const filledSectors=teams.filter(t=>maps.assigns.has(t.sector)).length;
- const filledOpen=teams.filter(t=>maps.assigns.has(t.sector)&&maps.statuses.get(t.sector)?.status==="open").length;
+ const missing=0,filledOpen=0;
+ const byStatus={active:filledSectors,open:teams.length-filledSectors};
  return {filledSectors,filledOpen,sectors:teams.length,stores:countDistinctStores(storeRows),links:links.size,active:peopleMap.size,upcoming:upcomingIds.size,people:[...peopleMap.values()],planned,plannedAssigned,plannedAverage:peopleMap.size?plannedAssigned/peopleMap.size:null,actual,actualAverage:assignedActual.n!==null&&peopleMap.size?assignedActual.n/peopleMap.size:null,statuses:byStatus,missing,teams};
 }
 function summaryMetric(label,value,help,accent=""){
@@ -128,7 +125,7 @@ function sourceContract(key){
 function horistaVisuals(){
  const h=analyze({model:"HORISTA"});
  const total=h.sectors||0,filled=h.filledSectors||0,unfilled=Math.max(0,total-filled);
- const active=h.statuses.active||0,hired=h.statuses.hired||0,onboarding=h.statuses.onboarding||0,open=h.statuses.open||0,pending=h.missing||0;
+ const active=filled,open=unfilled;
  const pct=n=>total?Math.max(0,Math.min(100,(n/total)*100)):0;
  const pFilled=pct(filled);
  const donut=`background:conic-gradient(#5aa991 0 ${pFilled.toFixed(2)}%,#e8edf5 ${pFilled.toFixed(2)}% 100%)`;
@@ -137,9 +134,7 @@ function horistaVisuals(){
    return {name,total:x.sectors,filled:x.filledSectors||0};
  }).sort((x,y)=>y.total-x.total);
  const maxRegion=Math.max(1,...regions.map(x=>x.total));
- const source=st.data?.sourceState||{},quality=source.quality||{};
- const conflicts=Number(quality.filled_with_open_status_count||h.filledOpen||0);
- const noStatus=Number(quality.status_not_informed_sector_count||pending||0);
+ const source=st.data?.sourceState||{};
  const sourceLabel=source.file_name||"Controle Operacional Horistas.xlsx";
  const processed=source.processed_at?new Date(source.processed_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"}):"Aguardando publicação";
  return `<section class="hdCard hdHoristaCard" aria-labelledby="hdHoristaTitle">
@@ -150,35 +145,34 @@ function horistaVisuals(){
      <div class="hdDonutPrimary"><span>Preenchidas</span><strong>${nfmt(filled)}</strong><small>${nfmt(pFilled,1)}% do total</small></div>
      <div class="hdLegendGrid">
        <div><i class="filled"></i><span>Com promotor</span><b>${nfmt(filled)}</b></div>
-       <div><i class="pending"></i><span>Sem promotor</span><b>${nfmt(unfilled)}</b></div>
+       <div><i class="pending"></i><span>Vaga Open</span><b>${nfmt(unfilled)}</b></div>
      </div>
    </div>
    <div class="hdHoristaStatus">
      <div class="hdMiniKpis">
        <div><span>Total de vagas</span><strong>${nfmt(total)}</strong><small>Setores Horistas</small></div>
-       <div><span>Preenchidas</span><strong>${nfmt(filled)}</strong><small>Promotor informado</small></div>
-       <div><span>Sem promotor</span><strong>${nfmt(unfilled)}</strong><small>Ainda sem vínculo</small></div>
+       <div><span>ATIVO</span><strong>${nfmt(filled)}</strong><small>Setores com promotor</small></div>
+       <div><span>VAGA OPEN</span><strong>${nfmt(unfilled)}</strong><small>Setores sem promotor</small></div>
        <div><span>Promotores únicos</span><strong>${nfmt(h.links)}</strong><small>Pessoas na fonte</small></div>
      </div>
-     <div class="hdStatusFlow" aria-label="Status informado das vagas">
-       ${[["Ativo",active,"active"],["Contratado",hired,"hired"],["Em admissão",onboarding,"onboarding"],["Vaga Open",open,"open"]].map(([label,value,cls])=>`<div class="hdFlowRow"><span>${label}</span><div class="hdFlowTrack"><i class="${cls}" style="width:${pct(value).toFixed(2)}%"></i></div><b>${nfmt(value)}</b></div>`).join("")}
-       <div class="hdFlowRow"><span>Sem status</span><div class="hdFlowTrack"><i class="pending" style="width:${pct(pending).toFixed(2)}%"></i></div><b>${nfmt(pending)}</b></div>
+     <div class="hdStatusFlow" aria-label="Status das vagas por vínculo">
+       ${[["ATIVO",active,"active"],["VAGA OPEN",open,"open"]].map(([label,value,cls])=>`<div class="hdFlowRow"><span>${label}</span><div class="hdFlowTrack"><i class="${cls}" style="width:${pct(value).toFixed(2)}%"></i></div><b>${nfmt(value)}</b></div>`).join("")}
      </div>
    </div>
  </div>
  <div class="hdRegionBars"><div class="hdRegionBarsHead"><div><b>Distribuição por região</b><span>Barra = vagas por região · verde = setores com promotor</span></div><small>${nfmt(total)} vagas no Brasil</small></div>
  ${regions.map(r=>`<div class="hdRegionBarRow"><span class="hdRegionName">${esc(r.name)}</span><div class="hdRegionTrack" title="${nfmt(r.filled)} preenchidas de ${nfmt(r.total)}"><i class="capacity" style="width:${Math.max(1,r.total/maxRegion*100)}%"><em class="filled" style="width:${r.total?r.filled/r.total*100:0}%"></em></i></div><span class="hdRegionValue"><b>${nfmt(r.total)}</b><small>${nfmt(r.filled)} preenchidas</small></span></div>`).join("")}
  </div>
- ${(conflicts||noStatus)?`<div class="hdHoristaNote"><b>Qualidade da fonte:</b> ${conflicts?`<strong>${nfmt(conflicts)} setor(es)</strong> têm promotor informado e ainda aparecem como Vaga Open. `:""}${noStatus?`<strong>${nfmt(noStatus)} setor(es)</strong> estão sem status da vaga informado. `:""}O Console preserva essas divergências para revisão; não corrige a planilha silenciosamente.</div>`:`<div class="hdHoristaNote"><b>Fonte consistente:</b> não há divergências de preenchimento/status detectadas na versão publicada.</div>`}
+ <div class="hdHoristaNote"><b>Regra de exibição:</b> ATIVO quando o setor tem promotor vinculado; VAGA OPEN quando não tem. O histórico de status da planilha permanece preservado na fonte.</div>
  </section>`;
 }
 function statusCard(){
  const x=analyze();
- const cards=[["active","Ativo"],["open","Vaga Open"],["onboarding","Em admissão"],["hired","Contratado"]];
- const pending=x.missing;
- return `<section class="hdCard"><div class="hdCardHead"><div><span class="hdEyebrow">STATUS DA VAGA / SETOR</span><h2>Situação das vagas</h2><p>Fonte oficial: Controle Operacional Horistas.xlsx · campo STATUS DA VAGA (CONTROLE HORISTA).</p></div>${pending?`<span class="hdFlag">${pending} aguardando atualização da fonte</span>`:`<span class="hdFlag">Base de status completa</span>`}</div>
- <div class="hdStatusTiles">${cards.map(([k,label])=>`<div class="hdStatusTile"><span class="hdStatusDot ${k}"></span><span>${label}</span><strong>${nfmt(x.statuses[k]||0)}</strong></div>`).join("")}</div>
- ${pending?`<div class="hdNotice"><b>${pending} setor(es)</b> ainda possuem texto legado sem correspondência segura nos quatro status atuais. Eles ficarão fora da contagem até a planilha atualizada ser sincronizada.</div>`:`<div class="hdNotice"><b>Status normalizado:</b> Ativo, Vaga Open, Em admissão e Contratado. O status do promotor é tratado separadamente.</div>`}</section>`;
+ return `<section class="hdCard"><div class="hdCardHead"><div><span class="hdEyebrow">STATUS DA OPERAÇÃO</span><h2>Ocupação das vagas</h2><p>Calculada pelo vínculo PROMOTOR ↔ SETOR na fonte oficial.</p></div></div>
+ <div class="hdStatusTiles hdSimpleStatusTiles">
+ <div class="hdStatusTile"><span class="hdStatusDot active"></span><span>ATIVO · com promotor</span><strong>${nfmt(x.statuses.active)}</strong></div>
+ <div class="hdStatusTile"><span class="hdStatusDot open"></span><span>VAGA OPEN · sem promotor</span><strong>${nfmt(x.statuses.open)}</strong></div>
+ </div></section>`;
 }
 function geographicSet(){
  return st.uf?new Set([st.uf]):st.region?new Set(REGIONS[st.region]):null;
@@ -189,36 +183,43 @@ function projectMapTitle(){
 function geographyDetails(){
  const set=geographicSet(),m=analyze({ufSet:set}),maps=getMaps();
  const mode=st.uf?"uf":st.region?"region":"national";
- const rows=st.uf?m.teams.slice().sort((a,b)=>String(a.sector).localeCompare(String(b.sector),"pt-BR")):[];
+ const allRows=st.uf?m.teams.slice().sort((a,b)=>String(a.sector).localeCompare(String(b.sector),"pt-BR")):[];
+ const matchesCoverage=sector=>st.coverageFilter==="all"||(st.coverageFilter==="active"?maps.assigns.has(sector):!maps.assigns.has(sector));
+ const rows=allRows.filter(team=>matchesCoverage(team.sector));
+ const storeRows=(st.uf?scopedStores(new Set([st.uf])):[]).filter(store=>matchesCoverage(store.sector)).sort((a,b)=>String(a.n).localeCompare(String(b.n),"pt-BR"));
  const personRows=rows.map(team=>({team,who:activeInfo(team,maps)})).filter(x=>x.who);
  const peopleIds=new Set(personRows.map(x=>x.who.person.id));
  const allAreas=mode==="region"?REGIONS[st.region]:Object.keys(REGIONS);
  const areaList=mode==="uf"?[]:mode==="national"?allAreas.map(region=>({title:region,id:region,level:"region",...analyze({ufSet:new Set(REGIONS[region])})})):
  allAreas.map(uf=>({title:UF_NAMES[uf],id:uf,level:"uf",...analyze({ufSet:new Set([uf])})}));
  const sectorList=rows.map(team=>{
-  const p=activeInfo(team,maps)?.person, statusRow=maps.statuses.get(team.sector),status=statusRow?.status,candidates=maps.candidates.get(team.sector)||[];
-  const candidate=candidates[0];
-  const owner=p?.full_name||(candidate?(status==="hired"?"Contratado: ":status==="onboarding"?"Em admissão: ":"Candidato: ")+candidate.full_name:"Promotor não cadastrado");
-  return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")}</small><small>${esc(owner)}</small></span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
+  const p=activeInfo(team,maps)?.person,status=p?"active":"open";
+  const owner=p?.full_name||"Sem promotor · vaga aberta";
+  return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")} · ${nfmt(team.pdvs)} loja(s)</small><small>${esc(owner)}</small></span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
+ }).join("");
+ const storeList=storeRows.map(store=>{
+  const assigned=maps.assigns.has(store.sector),status=assigned?"active":"open";
+  return `<button type="button" data-hd-store="${esc(store.id)}" class="hdMapSector hdDetailRow" aria-label="Abrir loja ${esc(store.n)}"><span class="hdRowIcon">⌂</span><span class="hdDetailRowText"><b>${esc(store.n)}</b><small>${esc(store.city||"")} · ${esc(store.sector)}</small></span><span class="hdSectorStatus ${status}">${STATUS[status].label}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
  }).join("");
  const uniquePeople=[...new Map(personRows.map(v=>[v.who.person.id,v])).values()];
  const peopleList=uniquePeople.map(({team,who})=>`<button type="button" data-hd-person="${esc(who.person.id)}" class="hdMapPerson hdDetailRow" aria-label="Abrir ficha de ${esc(who.person.full_name)}"><span class="hdPersonAvatar">${esc((who.person.full_name||"?").split(/\s+/).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</span><span class="hdDetailRowText"><b>${esc(who.person.full_name)}</b><small>${esc(team.sector)} · ${esc(who.isUpcoming?"Início previsto":who.isActive?"Ativo cadastral":"Status a confirmar")}</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`).join("");
  const areaRows=areaList.map(v=>{
   const count=v.sectors,active=v.active;
-  return `<button type="button" class="hdAreaRow hdDetailRow" data-hd-${v.level}="${esc(v.id)}" aria-label="${esc(v.title)}: ${nfmt(count)} setores"><span class="hdAreaAvatar">${v.level==="uf"?esc(v.id):"◉"}</span><span class="hdDetailRowText"><b>${esc(v.title)}</b><small>${nfmt(v.stores)} lojas · ${nfmt(active)} promotores ativos</small></span><span class="hdAreaSectorTotal"><b>${nfmt(count)}</b><small>setores</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`;
+  return `<button type="button" class="hdAreaRow hdDetailRow" data-hd-${v.level}="${esc(v.id)}" aria-label="${esc(v.title)}: ${nfmt(count)} setores"><span class="hdAreaAvatar">${v.level==="uf"?esc(v.id):"◉"}</span><span class="hdDetailRowText"><b>${esc(v.title)}</b><small>${nfmt(v.stores)} lojas · ${nfmt(v.filledSectors)} ativos · ${nfmt(v.sectors-v.filledSectors)} vagas abertas</small></span><span class="hdAreaSectorTotal"><b>${nfmt(count)}</b><small>setores</small></span><span class="hdChevron" aria-hidden="true">›</span></button>`;
  }).join("");
- const sectionTitle=mode==="national"?"Explore por região":mode==="region"?"Estados desta região":st.detailTab==="people"?"Promotores vinculados":"Setores do estado";
- let listHtml=mode==="uf"?(st.detailTab==="people"?peopleList:sectorList):areaRows;
- const listSize=mode==="uf"?(st.detailTab==="people"?uniquePeople.length:rows.length):areaRows.length;
- const tabHeader=mode==="uf"?`<div class="hdDetailTabs" role="group" aria-label="Detalhar por setores ou promotores"><button data-hd-tab="sectors" aria-pressed="${st.detailTab==="sectors"}" class="${st.detailTab==="sectors"?"active":""}">Setores <span>${nfmt(rows.length)}</span></button><button data-hd-tab="people" aria-pressed="${st.detailTab==="people"}" class="${st.detailTab==="people"?"active":""}">Promotores <span>${nfmt(peopleIds.size)}</span></button></div>`:"";
+ const sectionTitle=mode==="national"?"Explore por região":mode==="region"?"Estados desta região":st.detailTab==="people"?"Promotores vinculados":st.detailTab==="stores"?"Lojas do estado":"Setores do estado";
+ let listHtml=mode==="uf"?(st.detailTab==="people"?peopleList:st.detailTab==="stores"?storeList:sectorList):areaRows;
+ const listSize=mode==="uf"?(st.detailTab==="people"?uniquePeople.length:st.detailTab==="stores"?storeRows.length:rows.length):areaRows.length;
+ const tabHeader=mode==="uf"?`<div class="hdDetailTabs" role="group" aria-label="Detalhar por setores, lojas ou promotores"><button data-hd-tab="sectors" aria-pressed="${st.detailTab==="sectors"}" class="${st.detailTab==="sectors"?"active":""}">Setores <span>${nfmt(rows.length)}</span></button><button data-hd-tab="stores" aria-pressed="${st.detailTab==="stores"}" class="${st.detailTab==="stores"?"active":""}">Lojas <span>${nfmt(storeRows.length)}</span></button><button data-hd-tab="people" aria-pressed="${st.detailTab==="people"}" class="${st.detailTab==="people"?"active":""}">Promotores <span>${nfmt(peopleIds.size)}</span></button></div>`:"";
+ const coverageToolbar=mode==="uf"?`<div class="hdCoverageFilters" role="group" aria-label="Filtrar cobertura da operação">${[["all","Todos"],["active","ATIVO"],["open","VAGA OPEN"]].map(([value,label])=>`<button data-hd-coverage="${value}" aria-pressed="${st.coverageFilter===value}" class="${st.coverageFilter===value?"selected":""}">${label}</button>`).join("")}</div>`:"";
  const empty=mode==="uf"?(st.detailTab==="people"?"Nenhum promotor vinculado neste estado.":"Nenhum setor programado neste estado."):"Nenhum resultado.";
  return `<aside class="hdMapDetail" aria-label="Detalhes territoriais da operação">
  <div class="hdDetailFixed">
  <div class="hdScopeTitle"><span class="hdEyebrow">${mode==="national"?"PANORAMA NACIONAL":mode==="region"?"PANORAMA REGIONAL":"EXPLORAÇÃO POR UF"}</span><div class="hdScopeHeading"><h3>${esc(projectMapTitle())}</h3>${st.uf?'<button type="button" class="hdBackLink" data-hd-clear-uf>← Região</button>':st.region?'<button type="button" class="hdBackLink" data-hd-clear-region>← Brasil</button>':""}</div><p>${mode==="national"?"Clique em uma região ou estado no mapa":mode==="uf"?esc(UF_REGIONS[st.uf]):"Clique em um estado no mapa"}</p></div>
- <div class="hdScopeKpis" aria-label="Indicadores do local selecionado"><div><strong>${nfmt(m.sectors)}</strong><span>Setores</span></div><div><strong>${nfmt(m.stores)}</strong><span>Lojas</span></div><div><strong>${nfmt(m.active)}</strong><span>Promotores ativos*</span></div><div><strong>${nfmt(m.planned,st.week==="AVG"?1:0)}</strong><span>Visitas previstas</span></div></div>
- <div class="hdScopedModels" aria-label="Distribuição de equipes">${GROUPS.map(g=>{const n=analyze({model:g.key,ufSet:set});return `<div><span class="hdGroupMark ${g.accent}"></span><span>${esc(g.name)}</span><b>${n.sectors} setores</b></div>`;}).join("")}</div>
+ <div class="hdScopeKpis" aria-label="Indicadores do local selecionado"><div><strong>${nfmt(m.sectors)}</strong><span>Setores</span></div><div><strong>${nfmt(m.filledSectors)}</strong><span>ATIVO</span></div><div><strong>${nfmt(m.sectors-m.filledSectors)}</strong><span>VAGA OPEN</span></div><div><strong>${nfmt(m.stores)}</strong><span>Lojas</span></div></div>
+ ${coverageToolbar}
  ${tabHeader}
- ${mode==="uf"?`<div class="hdDetailSearch"><span aria-hidden="true">⌕</span><input id="hdScopeSearch" type="search" placeholder="Buscar setor, cidade ou promotor" aria-label="Pesquisar nesta lista" autocomplete="off"/><small id="hdResultsCount">${nfmt(listSize)} registros</small></div>`:""}
+ ${mode==="uf"?`<div class="hdDetailSearch"><span aria-hidden="true">⌕</span><input id="hdScopeSearch" type="search" placeholder="Buscar loja, setor, cidade ou promotor" aria-label="Pesquisar nesta lista" autocomplete="off"/><small id="hdResultsCount">${nfmt(listSize)} registros</small></div>`:""}
  <div class="hdMapSubhead"><span>${esc(sectionTitle)}</span><span>${nfmt(listSize)}</span></div>
  </div>
  <div class="hdDetailScroll" tabindex="0" role="region" aria-label="${esc(sectionTitle)}; lista rolável"><div class="hdMapDetailList">${listHtml||`<p class="hdEmpty">${empty}</p>`}</div></div>
@@ -232,8 +233,12 @@ function coordinates(geometry){
 function geoPaths(){
  if(!st.geo)return `<div class="hdMapLoading">${st.geoError?"Não foi possível abrir a malha. Explore as regiões e estados na lista ao lado.":"Carregando os 27 estados brasileiros…"}</div>`;
  const all=st.geo.features;
- const sectorCounts=new Map();
- for(const team of scopedTeams())sectorCounts.set(team.uf,(sectorCounts.get(team.uf)||0)+1);
+ const sectorCounts=new Map(),maps=getMaps();
+ for(const team of scopedTeams()){
+  const count=sectorCounts.get(team.uf)||{total:0,filled:0};count.total++;
+  if(maps.assigns.has(team.sector))count.filled++;
+  sectorCounts.set(team.uf,count);
+ }
  const flat=all.flatMap(f=>coordinates(f.geometry).flatMap(poly=>poly.flat()));
  const minX=Math.min(...flat.map(p=>p[0])),maxX=Math.max(...flat.map(p=>p[0])),minY=Math.min(...flat.map(p=>p[1])),maxY=Math.max(...flat.map(p=>p[1]));
  const w=600,h=620,pad=30,scale=Math.min((w-2*pad)/(maxX-minX),(h-2*pad)/(maxY-minY));
@@ -250,32 +255,31 @@ function geoPaths(){
    const xs=coordinatesFlat.map(p=>x(p[0])),ys=coordinatesFlat.map(p=>y(p[1]));
    const anchorX=(Math.min(...xs)+Math.max(...xs))/2,anchorY=(Math.min(...ys)+Math.max(...ys))/2;
    const d=polygons.map(poly=>poly.map(ring=>ring.map(([lon,lat],i)=>`${i===0?"M":"L"}${x(lon).toFixed(1)} ${y(lat).toFixed(1)}`).join(" ")+" Z").join(" ")).join(" ");
-   const count=sectorCounts.get(uf)||0;
+   const {total:count=0,filled=0}=sectorCounts.get(uf)||{};const open=count-filled;
    const region=UF_REGIONS[uf],selected=st.uf===uf?"selected":!st.uf&&st.region===region?"regionSelected":"";
    const dimmed=st.region&&region!==st.region?"dimmed":"";
-   const density=count===0?"zero":count<5?"low":count<20?"medium":"high";
+   const coverage=count===0?"zero":filled===0?"allOpen":open===0?"allActive":"mixed";
    const outside=!!callouts[uf],px=outside?callouts[uf].x:anchorX,py=outside?callouts[uf].y:anchorY;
-   const digits=String(count).length,badgeW=37+digits*7,badgeH=21;
+   const badgeW=47+(String(filled).length+String(count).length)*7,badgeH=21;
    const badgeX=px-badgeW/2, badgeY=py-badgeH/2;
    const leader=outside?`<path class="hdMapLeader" d="M ${anchorX.toFixed(1)} ${anchorY.toFixed(1)} L ${px.toFixed(1)} ${py.toFixed(1)}" />`:"";
-   labels.push(`${leader}<g class="hdMapLabel ${outside?"hdMapLabelOutside":""} ${st.uf===uf?"selected":""} ${dimmed} ${count===0?"empty":""}" data-hd-map-uf="${uf}" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(count)} setores" role="button" tabindex="0"><title>${esc(UF_NAMES[uf])} · ${nfmt(count)} setores · clique para detalhar</title><rect class="hdMapLabelHit" x="${(badgeX-4).toFixed(1)}" y="${(badgeY-8).toFixed(1)}" width="${badgeW+8}" height="${badgeH+16}" rx="10"/><rect x="${badgeX.toFixed(1)}" y="${badgeY.toFixed(1)}" width="${badgeW}" height="${badgeH}" rx="7"/><text x="${px.toFixed(1)}" y="${(py+3.5).toFixed(1)}" text-anchor="middle">${uf} <tspan class="hdMapLabelNum">${count}</tspan></text></g>`);
-   return `<path class="hdMapUF ${selected} ${dimmed} ${density}" d="${d}" data-hd-map-uf="${uf}" role="button" tabindex="0" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(count)} setores"><title>${esc(UF_NAMES[uf])} · ${nfmt(count)} setores · clique para detalhar</title></path>`;
+   labels.push(`${leader}<g class="hdMapLabel ${outside?"hdMapLabelOutside":""} ${st.uf===uf?"selected":""} ${dimmed} ${count===0?"empty":""}" data-hd-map-uf="${uf}" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(filled)} setores ativos de ${nfmt(count)}; ${nfmt(open)} vagas abertas" role="button" tabindex="0"><title>${esc(UF_NAMES[uf])} · ${nfmt(filled)} ativos / ${nfmt(count)} setores · ${nfmt(open)} vagas abertas</title><rect class="hdMapLabelHit" x="${(badgeX-4).toFixed(1)}" y="${(badgeY-8).toFixed(1)}" width="${badgeW+8}" height="${badgeH+16}" rx="10"/><rect x="${badgeX.toFixed(1)}" y="${badgeY.toFixed(1)}" width="${badgeW}" height="${badgeH}" rx="7"/><text x="${px.toFixed(1)}" y="${(py+3.5).toFixed(1)}" text-anchor="middle">${uf} <tspan class="hdMapLabelNum">${filled}/${count}</tspan></text></g>`);
+   return `<path class="hdMapUF ${selected} ${dimmed} ${coverage}" d="${d}" data-hd-map-uf="${uf}" role="button" tabindex="0" aria-label="${esc(UF_NAMES[uf])}: ${nfmt(filled)} setores ativos de ${nfmt(count)}, ${nfmt(open)} vagas abertas"><title>${esc(UF_NAMES[uf])} · ${nfmt(filled)} ativos / ${nfmt(count)} setores · ${nfmt(open)} vagas abertas</title></path>`;
  }).join("");
- return `<svg id="hdBrazilSVG" class="hdBrazilSVG" viewBox="0 0 690 620" role="group" aria-label="Mapa interativo do Brasil com quantidade de setores por estado">${shapes}<g class="hdMapLabels">${labels.join("")}</g></svg>`;
+ return `<svg id="hdBrazilSVG" class="hdBrazilSVG" viewBox="0 0 690 620" role="group" aria-label="Mapa interativo do Brasil com setores ativos e vagas abertas por estado">${shapes}<g class="hdMapLabels">${labels.join("")}</g></svg>`;
 }
 function brazilMap(){
  return `<section class="hdCard hdMapCard" aria-labelledby="hdMapTitle">
- <div class="hdCardHead hdMapCardHeader"><div><span class="hdEyebrow">01 · PRIMEIRO, ONDE ESTAMOS?</span><h2 id="hdMapTitle">Mapa da operação</h2><p>Clique em uma região ou estado. O número em cada marcador indica <b>setores programados</b>, não funcionários contratados.</p></div><div class="hdMapKey"><span class="hdMapKeyDot"></span><span><b>26 estados + DF</b><small>Explore por território</small></span></div></div>
+ <div class="hdCardHead hdMapCardHeader"><div><span class="hdEyebrow">01 · PRIMEIRO, ONDE ESTAMOS?</span><h2 id="hdMapTitle">Mapa da operação</h2><p>Cada estado mostra <b>ATIVO / TOTAL DE SETORES</b>. Selecione a UF para ver as vagas abertas e as lojas relacionadas.</p></div><div class="hdMapKey"><span class="hdMapKeyDot"></span><span><b>26 estados + DF</b><small>Explore por território</small></span></div></div>
  <div class="hdRegionChips" role="group" aria-label="Selecionar região brasileira"><button data-hd-country aria-pressed="${!st.region&&!st.uf}" class="${!st.region&&!st.uf?"selected":""}">Brasil</button>${Object.keys(REGIONS).map(r=>`<button data-hd-region="${esc(r)}" aria-pressed="${st.region===r&&!st.uf}" class="${st.region===r?"selected":""}">${esc(r)}</button>`).join("")}</div>
- <div class="hdMapLayout"><div class="hdMapFigure"><div class="hdMapCanvas">${geoPaths()}</div><div class="hdMapLegend"><span><i class="high"></i> Mais setores</span><span><i class="medium"></i> Intermediário</span><span><i class="low"></i> Poucos</span><span><i class="zero"></i> Sem setor</span></div><small class="hdGeoCredit">Mapa baseado em limites estaduais do IBGE · os rótulos mostram o total de setores no filtro atual</small></div>${geographyDetails()}</div>
+ <div class="hdMapLayout"><div class="hdMapFigure"><div class="hdMapCanvas">${geoPaths()}</div><div class="hdMapLegend"><span><i class="allActive"></i> Todas ativas</span><span><i class="mixed"></i> Com promotor e vagas</span><span><i class="allOpen"></i> Só vagas abertas</span><span><i class="zero"></i> Sem setor</span></div><small class="hdGeoCredit">ATIVO / TOTAL · 1 setor pode atender várias lojas · limites estaduais do IBGE</small></div>${geographyDetails()}</div>
  </section>`;
 }
 function render({scenario,contract,stores,teams,saved}){
  st.ctx={scenario:"C2",contract:"HORISTA",stores,teams,saved};
  if(!st.data)return '<section class="hdCard"><h2>Preparando painel de gestão…</h2><p>Carregando a fonte oficial Horista publicada no Supabase.</p></section>';
  const x=analyze({model:"HORISTA"}),unfilled=Math.max(0,x.sectors-x.filledSectors);
- return `<div class="hdDashboard"><div class="hdDashHero"><div><span>PAINEL NACIONAL · GENIALE / HARALD</span><h1>Controle Operacional Horistas</h1><p>Fonte única: Controle Operacional Horistas.xlsx · aba Controle Operacional.</p></div><button type="button" data-hd-refresh class="hdRefresh">↻ Atualizar painel</button></div>
- <div class="hdToolbar"><div><span class="hdEyebrow">PERÍODO DO ROTEIRO</span><div class="hdWeekTabs">${[["AVG","Média semanal"],["1","Semana 1"],["2","Semana 2"]].map(([id,label])=>`<button data-hd-week="${id}" class="${st.week===id?"active":""}" aria-pressed="${st.week===id}">${label}</button>`).join("")}</div></div><p>O roteiro vem da mesma aba operacional. Preenchimento e status são tratados como informações diferentes.</p></div>
+ return `<div class="hdDashboard">
  ${brazilMap()}
  ${horistaVisuals()}
  <div class="hdSectionHeading"><div><span class="hdEyebrow">03 · RESUMO OPERACIONAL</span><h2>Indicadores Horistas</h2></div><p>Uma única fonte, sem mistura com CLT.</p></div>
@@ -288,25 +292,27 @@ function render({scenario,contract,stores,teams,saved}){
  ${summaryMetric("Visitas programadas",nfmt(x.planned,st.week==="AVG"?1:0),"Programação semanal da fonte","visits")}
  </div>
  ${statusCard()}
- <div class="hdBottomNote"><b>Regra do Console:</b> uma vaga é considerada preenchida quando existe PROMOTOR informado naquele SETOR / EQUIPE. O campo de status é exibido separadamente e divergências são sinalizadas, nunca corrigidas silenciosamente.</div></div>`;
+ <div class="hdBottomNote"><b>Regra do Console:</b> ATIVO significa setor com PROMOTOR vinculado; VAGA OPEN significa setor sem PROMOTOR. O status original permanece preservado na fonte, e o Console não altera a planilha.</div></div>`;
 }
 function setRegion(r){
  if(!REGIONS[r])return;
- st.region=r;st.uf=null;st.detailTab="sectors";refresh();
+ st.region=r;st.uf=null;st.coverageFilter="all";st.detailTab="sectors";refresh();
 }
 function setUf(uf){
  if(!UF_REGIONS[uf])return;
- st.uf=uf;st.region=UF_REGIONS[uf];st.detailTab="sectors";refresh();
+ st.uf=uf;st.region=UF_REGIONS[uf];st.coverageFilter="all";st.detailTab="sectors";refresh();
 }
 function refresh(){window.haraldApp?.refresh?.();}
 function handleAction(el){
- if(el.hasAttribute("data-hd-tab")){if(["sectors","people"].includes(el.dataset.hdTab)){st.detailTab=el.dataset.hdTab;refresh();}return true;}
+ if(el.hasAttribute("data-hd-tab")){if(["sectors","stores","people"].includes(el.dataset.hdTab)){st.detailTab=el.dataset.hdTab;refresh();}return true;}
+ if(el.hasAttribute("data-hd-coverage")){const v=el.dataset.hdCoverage;if(["all","active","open"].includes(v)){st.coverageFilter=v;refresh();}return true;}
  if(el.hasAttribute("data-hd-week")){const v=el.dataset.hdWeek;if(["AVG","1","2"].includes(v)){st.week=v;refresh();}return true;}
  if(el.hasAttribute("data-hd-region")){setRegion(el.dataset.hdRegion);return true;}
  if(el.hasAttribute("data-hd-uf")){setUf(el.dataset.hdUf);return true;}
  if(el.hasAttribute("data-hd-country")){st.region=null;st.uf=null;refresh();return true;}
  if(el.hasAttribute("data-hd-clear-uf")){st.uf=null;refresh();return true;}
  if(el.hasAttribute("data-hd-clear-region")){st.region=null;st.uf=null;refresh();return true;}
+ if(el.hasAttribute("data-hd-store")){window.haraldApp?.openStore?.(el.dataset.hdStore);return true;}
  if(el.hasAttribute("data-hd-sector")){window.haraldPeople?.openSector(el.dataset.hdSector,st.ctx?.scenario);return true;}
  if(el.hasAttribute("data-hd-person")){window.haraldPeople?.openPerson(el.dataset.hdPerson);return true;}
  if(el.hasAttribute("data-hd-refresh")){window.haraldCloud?.reload?.();return true;}
@@ -343,5 +349,5 @@ function loadMap(){
 function hydrate(d){
  st.data=d;loadMap();
 }
-window.haraldDashboard={hydrate,render,afterRender,handleAction,getState:()=>({week:st.week,region:st.region,uf:st.uf})};
+window.haraldDashboard={hydrate,render,afterRender,handleAction,setWeek:week=>{if(["AVG","1","2"].includes(week)){st.week=week;refresh();}},getState:()=>({week:st.week,region:st.region,uf:st.uf,coverageFilter:st.coverageFilter})};
 })();
