@@ -1,12 +1,12 @@
 (function peopleModule(){
 "use strict";
-const state={people:[],occupancies:[],timeline:[],notes:[],privateRows:[],sectors:[],stores:[],role:"viewer",scenario:"C2",filter:"ALL",contact:"ALL",search:"",screen:"sectors",sector:null,person:null,store:null,reveal:false,api:null,loading:false};
+const state={people:[],occupancies:[],timeline:[],notes:[],privateRows:[],sectors:[],stores:[],role:"viewer",sourceManaged:false,scenario:"C2",filter:"HORISTA",contact:"ALL",search:"",screen:"sectors",sector:null,person:null,store:null,reveal:false,api:null,loading:false};
 let root=null;
 const E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const D=v=>{if(!v)return "Não informado";const x=new Date(v+"T12:00:00");return isNaN(x.getTime())?E(v):x.toLocaleDateString("pt-BR");};
 const days=date=>{if(!date)return null;const now=new Date();now.setHours(0,0,0,0);const d=new Date(date+"T00:00:00");return Math.round((d-now)/86400000);};
 const initials=name=>String(name||"?").trim().split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase();
-const okWrite=()=>["admin","editor"].includes(state.role);
+const okWrite=()=>!state.sourceManaged&&["admin","editor"].includes(state.role);
 const dateNow=()=>new Date().toLocaleDateString("sv-SE");
 const pby=id=>state.people.find(p=>p.id===id);
 const privateBy=id=>state.privateRows.find(p=>p.promoter_id===id);
@@ -17,8 +17,9 @@ const occPerson=id=>state.occupancies.filter(o=>o.promoter_id===id).sort((a,b)=>
 const badge=(text,cls="")=>`<span class="hpBadge ${cls}">${E(text)}</span>`;
 const detail=(k,v)=>`<div class="hpDetail"><span>${E(k)}</span><strong>${E(v??"Não informado")}</strong></div>`;
 const statusFor=(o,p)=>{
- if(!o)return {label:"Sem cadastro",cls:"muted"};
+ if(!o)return {label:"Sem promotor",cls:"muted"};
  if(o.end_date)return {label:"Encerrado",cls:"muted"};
+ if(state.sourceManaged)return {label:"Vínculo informado na fonte",cls:"active"};
  const delta=days(o.start_date);
  if(delta!==null&&delta>0)return {label:"Início previsto · "+D(o.start_date),cls:"scheduled"};
  if(p?.status==="DESLIGADO")return {label:"Cadastro desligado · revisar",cls:"danger"};
@@ -36,7 +37,7 @@ function header(){
 }
 function navigation(){
  const opts=[["sectors","▦","Setores e vagas"],["people","♙","Promotores"],["timeline","◷","Linha do tempo"]];
- return `<div class="hpSideNav"><div class="hpSideTitle">CONTROLE OPERACIONAL</div>${opts.map(([id,ico,label])=>`<button class="hpSideBtn ${(state.screen===id||(state.screen==="sector"&&id==="sectors"))?"sel":""}" data-hpa="nav" data-id="${id}"><span>${ico}</span>${label}</button>`).join("")}<div class="hpSideTitle hpSideTitleLower">ATENÇÃO</div><div class="hpGuide"><b>Setor = vaga permanente</b><p>Trocar promotor não altera lojas, roteiro nem o código do setor. A ocupação anterior permanece no histórico.</p></div></div>`;
+ return `<div class="hpSideNav"><div class="hpSideTitle">CONTROLE OPERACIONAL · HORISTAS</div>${opts.map(([id,ico,label])=>`<button class="hpSideBtn ${(state.screen===id||(state.screen==="sector"&&id==="sectors"))?"sel":""}" data-hpa="nav" data-id="${id}"><span>${ico}</span>${label}</button>`).join("")}<div class="hpSideTitle hpSideTitleLower">ATENÇÃO</div><div class="hpGuide"><b>Fonte oficial externa</b><p>Vagas, promotores e roteiros vêm do arquivo Controle Operacional Horistas.xlsx. O Console é consulta; alterações são feitas no chat Controle Operacional.</p></div></div>`;
 }
 function bread(){
  const entry=state.screen==="sector"?"Histórico do setor":state.screen==="person"?"Ficha do promotor":state.screen==="store"?"Histórico da loja":state.screen==="people"?"Promotores":state.screen==="timeline"?"Linha do tempo":"Setores e vagas";
@@ -44,15 +45,16 @@ function bread(){
 }
 function controls(forceList=false){
  if(!forceList&&["sector","person","store"].includes(state.screen))return `<button class="hpSoft" data-hpa="back">← Voltar à visão geral</button>`;
- return `<div class="hpControls"><div class="hpSearchBox"><span>⌕</span><input id="hpSearch" placeholder="Buscar setor, cidade, promotor ou matrícula" value="${E(state.search)}" aria-label="Pesquisar registros" /></div><select id="hpScenario" aria-label="Etapa da operação"><option value="C1" ${state.scenario==="C1"?"selected":""}>Etapa 1</option><option value="C2" ${state.scenario==="C2"?"selected":""}>Operação completa</option></select><select id="hpContactFilter" aria-label="Filtro por contato"><option value="ALL" ${state.contact==="ALL"?"selected":""}>Todos os contatos</option><option value="WITH" ${state.contact==="WITH"?"selected":""}>✓ Com contato</option><option value="WITHOUT" ${state.contact==="WITHOUT"?"selected":""}>! Sem contato</option></select><div class="hpSegment" role="group" aria-label="Tipo de vínculo">${[["ALL","Todos"],["CLT","CLT"],["HORISTA","Horistas"]].map(([id,label])=>`<button class="${state.filter===id?"sel":""}" data-hpa="filter" data-id="${id}">${label}</button>`).join("")}</div></div>`;
+ return `<div class="hpControls"><div class="hpSearchBox"><span>⌕</span><input id="hpSearch" placeholder="Buscar setor, cidade ou promotor" value="${E(state.search)}" aria-label="Pesquisar registros" /></div><select id="hpContactFilter" aria-label="Filtro por contato"><option value="ALL" ${state.contact==="ALL"?"selected":""}>Todos os contatos</option><option value="WITH" ${state.contact==="WITH"?"selected":""}>✓ Com contato</option><option value="WITHOUT" ${state.contact==="WITHOUT"?"selected":""}>! Sem contato</option></select><span class="hpSecure">HORISTAS · C2 · FONTE OFICIAL</span></div>`;
 }
 function dash(){
- const teams=sectorList(),occupied=teams.filter(t=>!!openOcc(t.sector)),upcoming=occupied.filter(t=>{const o=openOcc(t.sector);return days(o.start_date)>0}),missing=teams.length-occupied.length;
+ const teams=sectorList(),occupied=teams.filter(t=>!!openOcc(t.sector)),missing=teams.length-occupied.length;
+ const unique=new Set(occupied.map(t=>openOcc(t.sector)?.promoter_id).filter(Boolean)).size;
  return `<div class="hpMetrics">${[
-  ["Setores no filtro",teams.length,"Total de vagas/roteiros","blue"],
-  ["Com promotor",occupied.length,"Cadastro vinculado ao setor","green"],
-  ["Inícios previstos",upcoming.length,"Com admissão futura","amber"],
-  ["Sem cadastro",missing,"Não significa vaga oficialmente aberta","grey"]].map(x=>`<div class="hpMetric ${x[3]}"><div>${E(x[0])}</div><strong>${x[1].toLocaleString("pt-BR")}</strong><small>${E(x[2])}</small></div>`).join("")}</div>`;
+  ["Vagas Horistas",teams.length,"Setores na fonte oficial","blue"],
+  ["Preenchidas",occupied.length,"Setores com promotor","green"],
+  ["Sem promotor",missing,"Setores ainda sem vínculo","grey"],
+  ["Promotores únicos",unique,"Pessoas vinculadas","amber"]].map(x=>`<div class="hpMetric ${x[3]}"><div>${E(x[0])}</div><strong>${x[1].toLocaleString("pt-BR")}</strong><small>${E(x[2])}</small></div>`).join("")}</div>`;
 }
 function hasPeoplePhone(p){
  const digits=String(p?.whatsapp||"").replace(/\D/g,"");
@@ -215,13 +217,12 @@ function layout(){
 function render(){
  if(!root) return;
  root.innerHTML=layout();
- document.body.classList.add("hp-open");
+ document.body.classList.add("hp-open");if(state.sourceManaged)root.classList.add("hpSourceManaged");else root.classList.remove("hpSourceManaged");
  root.querySelector("#hpSearch")?.addEventListener("input",e=>{
   const s=e.target.selectionStart;state.search=e.target.value;
   const q=state.search;render();const n=root.querySelector("#hpSearch");if(n){n.focus();n.setSelectionRange(Math.min(s,q.length),Math.min(s,q.length));}
  });
- root.querySelector("#hpScenario")?.addEventListener("change",e=>{state.scenario=e.target.value;state.screen="sectors";render();});
- root.querySelector("#hpContactFilter")?.addEventListener("change",e=>{state.contact=e.target.value;render();});
+  root.querySelector("#hpContactFilter")?.addEventListener("change",e=>{state.contact=e.target.value;render();});
 }
 function open(screen="sectors",sector=null,person=null,scenario=null){
  if(!root){root=document.createElement("div");root.id="hpRoot";root.className="hpOverlay";document.body.appendChild(root);root.addEventListener("click",click);root.addEventListener("submit",submit);}
@@ -270,10 +271,10 @@ async function click(e){
  if(action==="openSector"){return open("sector",btn.dataset.sector,null,btn.dataset.scenario||null);}
  if(action==="openPerson"){return open("person",null,btn.dataset.id);}
  if(action==="openStore"){state.store=btn.dataset.id;return open("store",null,null,btn.dataset.scenario||null);}
- if(action==="replace"){state.replace=true;return render();}
+ if(action==="replace"){if(state.sourceManaged)return alert("Atualize o promotor no chat Controle Operacional; o Console será atualizado pela fonte oficial.");state.replace=true;return render();}
  if(action==="cancelReplace"){state.replace=false;return render();}
- if(action==="editPerson"){state.editForm="public";return render();}
- if(action==="editPrivate"){state.editForm="private";return render();}
+ if(action==="editPerson"){if(state.sourceManaged)return alert("Dados do promotor são geridos na fonte oficial Controle Operacional.");state.editForm="public";return render();}
+ if(action==="editPrivate"){if(state.sourceManaged)return alert("Dados pessoais são geridos na fonte oficial Controle Operacional.");state.editForm="private";return render();}
  if(action==="cancelEdit"){state.editForm=null;return render();}
  if(action==="reveal"){state.reveal=!state.reveal;return render();}
  if(action==="whatsapp"){
@@ -319,7 +320,7 @@ async function submit(e){
  }catch(err){alert("Não foi possível salvar.\n"+(err.message||err));if(btn){btn.disabled=false;btn.textContent="Tentar novamente";}}
 }
 function hydrate(payload){
- state.people=payload.persons||[];state.occupancies=payload.occupancies||[];state.timeline=payload.timeline||[];state.notes=payload.notes||[];state.privateRows=payload.privateRows||[];state.sectors=payload.teams||[];state.stores=payload.stores||[];state.role=payload.role||"viewer";state.api=payload.api;
+ state.people=payload.persons||[];state.occupancies=payload.occupancies||[];state.timeline=payload.timeline||[];state.notes=payload.notes||[];state.privateRows=payload.privateRows||[];state.sectors=payload.teams||[];state.stores=payload.stores||[];state.role=payload.role||"viewer";state.sourceManaged=payload.sourceManaged===true;state.scenario="C2";state.filter="HORISTA";state.api=payload.api;
  bindNav();if(root)render();
 }
 function reset(){
