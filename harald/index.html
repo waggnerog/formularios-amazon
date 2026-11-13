@@ -73,6 +73,7 @@
   <button class="navBtn" type="button" data-nav="teams"><svg class="icon"><use href="#i-layers"/></svg><span>Setores</span></button>
   <button class="navBtn" type="button" data-nav="routes"><svg class="icon"><use href="#i-calendar"/></svg><span>Roteiro semanal</span></button>
   <button class="navBtn" type="button" data-nav="people"><svg class="icon"><use href="#i-users"/></svg><span>Promotores</span></button>
+  <a class="navBtn" id="routeSuggestionsLink" href="./roteiros/?modo=coordenacao" hidden><svg class="icon"><use href="#i-calendar"/></svg><span>Sugestões de roteiro</span><b class="navBadge" id="routeSuggestionsCount" hidden></b></a>
  </nav>
  <div class="sideSpacer"></div>
  <div class="sideTip"><svg class="icon" style="color:#606ee3"><use href="#i-spark"/></svg><strong>Uma tarefa por vez</strong><p>Use o Modo Foco para reduzir informações na tela. Pesquise uma loja, abra a ficha e execute a ação.</p><button type="button" class="btn sm wide" id="focusSide"><svg class="icon sm"><use href="#i-focus"/></svg> Ativar Modo Foco</button></div>
@@ -91,6 +92,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input id="restoreInput" type="file" accept=".json,application/json" hidden/>
 <script id="sistematica-data" type="application/json">{"meta":{"title":"Sistemática Visual — HARALD","reviewDate":"02/10/2026","basedOn":"Cópia de SISTEMARICA GERAL.xlsx","scenarios":{"C1":"START 1","C2":"START 1 + START 2"},"notes":"Setores, lojas e roteiros conforme a planilha original. Cenários alternativos; não somar."},"stores":[],"teams":[]}</script>
+<style>#routeSuggestionsLink[hidden],#routeSuggestionsCount[hidden]{display:none!important}</style>
 <script src="./cloud.js"></script>
 <script src="./people.js"></script>
 <script src="./dashboard.js"></script>

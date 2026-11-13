@@ -77,8 +77,33 @@ async function enter(){
     if(!memberships.length){role=null;pendingGate("Aguardando o administrador vincular sua conta à operação HARALD.");return;}
     role=memberships[0].role;
     await loadData();
+    startRouteNotifications();
     await beginNetworkWatch();
   }catch(e){gateForm("login","Falha ao conectar: "+e.message);}
+}
+
+let routeNoticeTimer;
+function startRouteNotifications(){
+  clearInterval(routeNoticeTimer);
+  const link=$("#routeSuggestionsLink"), badge=$("#routeSuggestionsCount");
+  if(!link || !badge)return;
+  link.hidden=role!=="admin";
+  badge.hidden=true;
+  if(link.hidden)return;
+  async function refreshRouteCount(){
+    if(document.hidden || role!=="admin" || !session)return;
+    try{
+      const result=await api("rpc/harald_route_suggestions",{method:"POST",body:{action:"admin_count",data:{}}});
+      const n=Number(result?.unread||0);
+      badge.hidden=n===0;
+      badge.textContent=n>99?"99+":String(n);
+      link.setAttribute("aria-label",n?"Sugestões de roteiro, "+n+" novas":"Sugestões de roteiro");
+    }catch{
+      badge.hidden=true;
+    }
+  }
+  void refreshRouteCount();
+  routeNoticeTimer=setInterval(refreshRouteCount,30000);
 }
 
 async function loadData(){
