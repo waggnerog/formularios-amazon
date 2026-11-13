@@ -21,6 +21,8 @@ let roster = [];
 let adminTab = "submissions";
 let filter = "";
 let hasNext = false;
+const selectedForInvolves = new Set();
+const canExportToInvolves = (item) => item.stores.some((store) => store.days.length) && item.stores.every((store) => store.sector !== "TESTE");
 
 function notice(message = "", error = false) {
   const element = $("#notice");
@@ -225,7 +227,8 @@ function renderAdmin() {
   const items = adminTab === "submissions" ? visible.map((item) => `<article class="store">
     <div><h2>${esc(item.promoter)}</h2><p class="muted">${date(item.submitted_at)} · ${item.stores.length} loja(s) · ${esc([...new Set(item.stores.map((s) => s.sector))].join(", "))}</p>
     ${item.read_at ? "" : '<span class="tag pending">Nova sugestão</span>'}</div>
-    <button type="button" data-detail="${item.id}">Ver sugestão</button></article>`) : people.map((person) => `<article class="store">
+    <div class="actions"><button type="button" data-detail="${item.id}">Ver sugestão</button>
+    ${canExportToInvolves(item) ? `<label class="choice"><input type="checkbox" data-involves-id="${item.id}" ${selectedForInvolves.has(String(item.id)) ? "checked" : ""}> Selecionar para o Involves</label>` : ""}</div></article>`) : people.map((person) => `<article class="store">
     <div><h2>${esc(person.name)}</h2><p class="muted">${esc(person.sectors)} · ${person.stores} loja(s)</p><span class="tag">${esc(person.access)}</span></div>
     </article>`);
   $("#header-action").innerHTML = '<a class="button quiet" href="../">Voltar ao Console</a>';
@@ -234,7 +237,7 @@ function renderAdmin() {
     <div class="actions"><button type="button" id="submissions" aria-pressed="${adminTab === "submissions"}" class="${adminTab === "submissions" ? "primary" : ""}">Recebidas</button>
     <button type="button" id="people" aria-pressed="${adminTab === "people"}" class="${adminTab === "people" ? "primary" : ""}">Acesso dos promotores</button>
     <button type="button" id="reload-admin">Atualizar</button>
-    ${adminTab === "submissions" ? '<button type="button" id="export">Exportar CSV</button>' : ""}</div>
+    ${adminTab === "submissions" ? '<button type="button" id="export">Exportar CSV</button><button type="button" id="export-involves">Preparar exportação Involves</button>' : ""}</div>
     <label class="field">Buscar <input id="filter" type="search" value="${esc(filter)}" placeholder="${adminTab === "submissions" ? "Promotor, posição, cidade, UF ou loja" : "Promotor ou posição"}"></label>
     <div id="admin-list" class="stores">${items.join("") || `<p class="panel muted">${filter ? "Nenhum resultado." : adminTab === "submissions" ? "Nenhuma sugestão recebida." : "Nenhum cadastro vinculado."}</p>`}</div>
     ${adminTab === "submissions" && hasNext ? '<button id="more" type="button">Carregar mais</button>' : ""}
@@ -257,11 +260,33 @@ function renderAdmin() {
   view.querySelectorAll("[data-detail]").forEach((button) => { button.onclick = () => openDetail(button.dataset.detail, button); });
   if ($("#more")) $("#more").onclick = (event) => run(event.currentTarget, () => loadSubmissions(submissions.at(-1).id));
   if ($("#export")) $("#export").onclick = (event) => run(event.currentTarget, exportCsv);
+  const involvesButton = $("#export-involves");
+  if (involvesButton) {
+    const updateLabel = () => {
+      involvesButton.disabled = !selectedForInvolves.size;
+      involvesButton.textContent = selectedForInvolves.size
+        ? "Preparar exportação Involves (" + selectedForInvolves.size + ")"
+        : "Preparar exportação Involves";
+    };
+    updateLabel();
+    view.querySelectorAll("[data-involves-id]").forEach((input) => {
+      input.onchange = () => {
+        const id = input.dataset.involvesId;
+        if (input.checked) selectedForInvolves.add(id);
+        else selectedForInvolves.delete(id);
+        updateLabel();
+      };
+    });
+    involvesButton.onclick = (event) => run(event.currentTarget, () => prepareInvolves(
+      submissions.filter((item) => selectedForInvolves.has(String(item.id)) && canExportToInvolves(item))
+    ));
+  }
 }
 
 async function loadSubmissions(before) {
   const page = (await request("admin_list", before ? { before } : {})).submissions;
   submissions = before ? submissions.concat(page) : page;
+  if (!before) selectedForInvolves.clear();
   hasNext = page.length === 50;
   renderAdmin();
 }
@@ -283,6 +308,88 @@ function openDetail(id, button) {
     item.read_at = new Date().toISOString();
     button.closest("article").querySelector(".tag")?.remove();
   }, $("#drawer-error"));
+}
+
+async function loadInvolves() {
+  const files = [
+    ["fflate", "vendor/fflate-0.8.2.js"],
+    ["haraldInvolvesTemplate", "involves-template.js"],
+    ["haraldInvolves", "involves.js?v=3"],
+  ];
+  await Promise.all(files.filter(([global]) => !window[global]).map(([, src]) => new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = () => {
+      script.remove();
+      reject(Error("Falha ao carregar a exportação. Tente novamente."));
+    };
+    document.head.append(script);
+  })));
+  return window.haraldInvolves;
+}
+
+async function prepareInvolves(items) {
+  if (!items.length) throw Error("Selecione as sugestões que deseja exportar.");
+  const exporter = await loadInvolves();
+  const weekFields = (store, suffix, weekIndex) => exporter.dayNumbers.map((day, index) => {
+    if (!store.days.includes(day)) return "";
+    return `<label class="field">${exporter.weekdays[index]}
+      <input name="visit-${suffix}-${weekIndex}-${day}" placeholder="1º ou 09:00 até 10:00" maxlength="25">
+    </label>`;
+  }).join("");
+  const suggested = (item, index) => `<fieldset class="panel flow" data-involves-promoter>
+    <legend>${esc(item.promoter)}</legend>
+    <label class="field">Nome cadastrado no Involves<input name="name-${index}" required value="${esc(item.promoter)}"></label>
+    <label class="field">Período<select name="period-${index}" required data-involves-period>
+      <option value="">Selecione</option><option>Semanal</option><option>Quinzenal</option>
+    </select></label>
+    ${item.stores.map((store, i) => {
+      const suffix = `${index}-${i}`;
+      if (!store.days.length) return `<p class="muted"><strong>${esc(store.name)}</strong> · Sem disponibilidade</p>`;
+      return `<details class="panel flow">
+        <summary><strong>${esc(store.name)}</strong> · ${esc(labels(store.days))}</summary>
+        <p class="muted">${esc(store.sector)}${store.visits ? " · Visitas previstas por semana: " + esc(store.visits) : ""}</p>
+        <label class="choice"><input type="checkbox" name="skip-${suffix}" data-involves-skip> Excluir da exportação</label>
+        <fieldset class="flow" data-involves-store>
+          <label class="field">Nome do PDV cadastrado no Involves<input name="pdv-${suffix}" value="${esc(store.name)}"></label>
+          <label class="field">Código do PDV (opcional)<input name="code-${suffix}"></label>
+          <fieldset class="flow" data-week-first><legend>Dias do roteiro</legend>${weekFields(store, suffix, 0)}</fieldset>
+          <fieldset class="flow" data-week-second hidden><legend>Semana próxima</legend>${weekFields(store, suffix, 1)}</fieldset>
+        </fieldset>
+      </details>`;
+    }).join("")}
+  </fieldset>`;
+  showDrawer("Preparar exportação Involves", `<p>Confira os nomes no Involves, selecione o período e preencha a ordem ou o horário das visitas nos dias que você aprovar. Deixe em branco os demais dias.</p>
+    <form id="involves-form" class="flow">
+      ${items.map(suggested).join("")}
+      <label class="choice"><input type="checkbox" required> Conferi os nomes, a frequência e os dias das visitas</label>
+      <button class="primary" type="submit">Baixar XLSX do Involves</button>
+    </form>`);
+  const form = $("#involves-form");
+  form.querySelectorAll("[data-involves-period]").forEach((select) => {
+    select.onchange = () => {
+      const promoter = select.closest("[data-involves-promoter]");
+      const fortnightly = select.value === "Quinzenal";
+      promoter.querySelectorAll("[data-week-first] legend").forEach((legend) => {
+        legend.textContent = fortnightly ? "Semana atual" : "Dias do roteiro";
+      });
+      promoter.querySelectorAll("[data-week-second]").forEach((week) => { week.hidden = !fortnightly; });
+    };
+  });
+  form.querySelectorAll("[data-involves-skip]").forEach((input) => {
+    input.onchange = () => {
+      input.closest("details").querySelector("[data-involves-store]").disabled = input.checked;
+    };
+  });
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    run(event.submitter, async () => {
+      exporter.download(exporter.buildRows(items, new FormData(form)));
+      drawer.close();
+      notice("Planilha gerada. No Involves, importe pela opção Relatórios.");
+    }, $("#drawer-error"));
+  };
 }
 
 async function exportCsv() {
