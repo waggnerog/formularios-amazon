@@ -76,25 +76,25 @@ async function run(button, operation, errorTarget) {
   } finally { button.disabled = false; }
 }
 
-function renderLogin(activate = false) {
+function renderLogin() {
   $("#header-action").innerHTML = "";
   view.innerHTML = `<section class="panel narrow flow">
-    <div class="heading"><h1>${activate ? "Ative seu acesso" : "Minhas lojas"}</h1>
-    <p class="muted">${activate ? "Use o código individual enviado pela coordenação e crie sua senha." : "Entre para informar os dias em que você pode atender suas lojas."}</p></div>
+    <div class="heading"><h1>Minhas lojas</h1>
+    <p class="muted">Entre para informar os dias em que você pode atender suas lojas.</p></div>
     <form class="flow" id="login">
-      <label class="field">CPF<input name="cpf" inputmode="numeric" maxlength="14" autocomplete="username" required></label>
-      <label class="field">${activate ? "Senha inicial" : "Senha"}<input name="password" type="password" autocomplete="current-password" required></label>
-      ${activate ? '<label class="field">Código individual<input name="code" maxlength="24" autocapitalize="off" spellcheck="false" required></label><label class="field">Sua nova senha<input name="new_password" type="password" autocomplete="new-password" minlength="15" maxlength="72" required></label>' : ""}
-      <button type="submit" class="primary">${activate ? "Ativar e entrar" : "Entrar"}</button>
+      <label class="field">CPF (somente números)<input name="cpf" inputmode="numeric" pattern="[0-9]{11}" maxlength="14" autocomplete="username" required></label>
+      <label class="field">Senha<input name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="primary">Entrar</button>
     </form>
-    <button type="button" class="quiet" id="toggle-login">${activate ? "Já tenho acesso" : "Primeiro acesso ou redefinir senha"}</button>
   </section>`;
-  $("#toggle-login").onclick = () => { notice(); renderLogin(!activate); };
+  $("#login [name=cpf]").oninput = (event) => {
+    event.target.value = event.target.value.replace(/[^0-9]/g, "").slice(0, 11);
+  };
   $("#login").onsubmit = (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.target));
     run(event.submitter, async () => {
-      const result = await request(activate ? "activate" : "login", data);
+      const result = await request("login", data);
       sessionStorage.setItem(fieldSession, result.token);
       await refreshField();
     });
@@ -227,7 +227,7 @@ function renderAdmin() {
     ${item.read_at ? "" : '<span class="tag pending">Nova sugestão</span>'}</div>
     <button type="button" data-detail="${item.id}">Ver sugestão</button></article>`) : people.map((person) => `<article class="store">
     <div><h2>${esc(person.name)}</h2><p class="muted">${esc(person.sectors)} · ${person.stores} loja(s)</p><span class="tag">${esc(person.access)}</span></div>
-    <button type="button" data-invite="${person.ref}">${person.access === "Ativo" ? "Redefinir acesso" : "Gerar código"}</button></article>`);
+    </article>`);
   $("#header-action").innerHTML = '<a class="button quiet" href="../">Voltar ao Console</a>';
   view.innerHTML = `<section class="flow">
     <div class="heading"><h1>Sugestões de roteiro</h1><p class="muted">Disponibilidade de atendimento dos promotores horistas.</p></div>
@@ -255,7 +255,6 @@ function renderAdmin() {
 
   };
   view.querySelectorAll("[data-detail]").forEach((button) => { button.onclick = () => openDetail(button.dataset.detail, button); });
-  view.querySelectorAll("[data-invite]").forEach((button) => { button.onclick = () => openInvite(Number(button.dataset.invite)); });
   if ($("#more")) $("#more").onclick = (event) => run(event.currentTarget, () => loadSubmissions(submissions.at(-1).id));
   if ($("#export")) $("#export").onclick = (event) => run(event.currentTarget, exportCsv);
 }
@@ -283,24 +282,6 @@ function openDetail(id, button) {
     await request("admin_read", { id });
     item.read_at = new Date().toISOString();
     button.closest("article").querySelector(".tag")?.remove();
-  }, $("#drawer-error"));
-}
-
-function openInvite(ref) {
-  const person = roster.find((p) => p.ref === ref);
-  showDrawer(person.name, `<p>Gere um código individual válido por 7 dias. Compartilhe o código diretamente com o promotor.</p>
-    <button id="generate" class="primary" type="button">Gerar código individual</button><div class="flow" id="invite-result"></div>`);
-  $("#generate").onclick = (event) => run(event.currentTarget, async () => {
-    const result = await request("admin_invite", { ref, version: person.version });
-    $("#invite-result").innerHTML = `<p class="invite-code">${esc(result.code)}</p>
-      <button type="button" id="copy-code">Copiar instruções de acesso</button>`;
-    $("#copy-code").onclick = (e) => run(e.currentTarget, async () => {
-      await navigator.clipboard.writeText(`Olá, ${person.name.split(" ")[0]}! Abra ${location.origin}${location.pathname}, toque em Primeiro acesso ou redefinir senha e informe seu CPF, a senha inicial 123456 e o código ${result.code}. Em seguida, crie sua senha e preencha os dias em que consegue atender suas lojas. O código vale por 7 dias.`);
-      e.currentTarget.textContent = "Instruções copiadas";
-    }, $("#drawer-error"));
-    event.target.hidden = true;
-    person.access = person.access === "Ativo" ? "Ativo" : "Código gerado";
-    renderAdmin();
   }, $("#drawer-error"));
 }
 
