@@ -81,11 +81,11 @@ async function run(button, operation, errorTarget) {
 function renderLogin() {
   $("#header-action").innerHTML = "";
   view.innerHTML = `<section class="panel narrow flow">
-    <div class="heading"><h1>Minhas lojas</h1>
-    <p class="muted">Entre para informar os dias em que você pode atender suas lojas.</p></div>
+    <div class="heading"><h1>Disponibilidade de visitas</h1>
+    <p class="muted">Entre com seu CPF e sua senha para ver suas lojas.</p></div>
     <form class="flow" id="login">
-      <label class="field">CPF (somente números)<input name="cpf" inputmode="numeric" pattern="[0-9]{11}" maxlength="14" autocomplete="username" required></label>
-      <label class="field">Senha<input name="password" type="password" autocomplete="current-password" required></label>
+      <label class="field">CPF <small class="muted">Digite os 11 números, sem pontos e traço.</small><input name="cpf" inputmode="numeric" pattern="[0-9]{11}" maxlength="14" autocomplete="username" required></label>
+      <label class="field">Senha<input name="password" type="password" inputmode="numeric" autocomplete="current-password" required></label>
       <button type="submit" class="primary">Entrar</button>
     </form>
   </section>`;
@@ -99,6 +99,7 @@ function renderLogin() {
       const result = await request("login", data);
       sessionStorage.setItem(fieldSession, result.token);
       await refreshField();
+      $("#field-title")?.focus();
     });
   };
 }
@@ -119,7 +120,8 @@ function renderField() {
 
   if (state.submitted) {
     view.innerHTML = `<section class="panel narrow flow"><span class="tag good">Enviado</span>
-      <h1>Sugestão enviada</h1><p>A coordenação recebeu sua disponibilidade em ${date(state.submitted.at)}.</p>
+      <h1 id="field-title" tabindex="-1">Sugestão enviada</h1><p>A coordenação recebeu seus dias disponíveis em ${date(state.submitted.at)}.</p>
+      <p class="muted">Se sua disponibilidade mudar, você pode enviar outra sugestão.</p>
       <button id="revise" type="button">Enviar uma nova sugestão</button></section>`;
     $("#revise").onclick = (event) => run(event.currentTarget, async () => {
       state = await request("revise", { submission: state.submitted.id });
@@ -128,31 +130,20 @@ function renderField() {
     return;
   }
 
-  if (!state.name) {
-    view.innerHTML = `<section class="panel narrow flow"><h1>Qual é o seu nome?</h1>
-      <form id="name-form" class="flow"><label class="field">Nome completo<input name="name" autocomplete="name" minlength="2" maxlength="150" required></label>
-      <button type="submit" class="primary">Ver minhas lojas</button></form></section>`;
-    $("#name-form").onsubmit = (event) => {
-      event.preventDefault();
-      run(event.submitter, async () => {
-        state = await request("name", { name: new FormData(event.target).get("name") });
-        renderField();
-      });
-    };
-    return;
-  }
-
   const done = state.stores.filter((store) => own(state.draft, store.id)).length;
+  const firstName = state.name?.trim().split(/\s+/)[0];
+  const complete = done === state.stores.length;
   view.innerHTML = `<section class="flow">
-    <div class="heading"><h1>Minhas lojas</h1><p class="muted">${esc(state.name)}, marque todos os dias em que você consegue atender cada loja.</p></div>
-    <div class="panel flow"><div class="row"><strong>${done} de ${state.stores.length} lojas preenchidas</strong>
+    <div class="heading"><h1 id="field-title" tabindex="-1">Minhas lojas</h1>
+      <p class="muted">${firstName ? "Olá, " + esc(firstName) + "! " : ""}Toque em <strong>Escolher dias</strong> e marque quando pode atender cada loja.</p></div>
+    <div class="panel flow"><div class="row"><strong>${done} de ${state.stores.length} lojas respondidas</strong>
       <button type="button" id="reload-stores" class="quiet">Atualizar lojas</button></div>
-      <progress class="progress" aria-label="Lojas preenchidas" value="${done}" max="${state.stores.length}"></progress></div>
+      <progress class="progress" aria-label="Lojas respondidas" value="${done}" max="${state.stores.length}"></progress></div>
     <div class="stores">${state.stores.map((store, index) => `<article class="store">
       <div><h2>${esc(store.name)}</h2><p class="muted">${esc(store.city)}/${esc(store.uf)} · ${esc(store.sector)}${store.visits ? " · " + esc(store.visits) + " visita(s) por semana" : ""}</p>
-      ${own(state.draft, store.id) ? `<span class="tag good">${esc(labels(state.draft[store.id]))}</span>` : '<span class="tag pending">Pendente</span>'}</div>
-      <button type="button" data-store="${index}" aria-label="Editar disponibilidade de ${esc(store.name)}">${own(state.draft, store.id) ? "Editar dias" : "Escolher dias"}</button></article>`).join("")}</div>
-    <div class="row"><span class="muted">O rascunho fica salvo a cada loja.</span><button type="button" class="primary" id="review" ${done !== state.stores.length ? "disabled" : ""}>Revisar e enviar</button></div>
+      ${own(state.draft, store.id) ? `<span class="tag good">${esc(labels(state.draft[store.id]))}</span>` : '<span class="tag pending">Falta responder</span>'}</div>
+      <button type="button" data-store="${index}" aria-label="${own(state.draft, store.id) ? "Editar dias de" : "Escolher dias de"} ${esc(store.name)}">${own(state.draft, store.id) ? "Editar dias" : "Escolher dias"}</button></article>`).join("")}</div>
+    <div class="row"><p class="muted">${complete ? "Tudo preenchido. Confira os dias antes de enviar." : "Salve cada loja. Quando responder todas, você poderá revisar e enviar."}</p><button type="button" class="primary" id="review" ${complete ? "" : "disabled"}>Revisar e enviar</button></div>
   </section>`;
   view.querySelectorAll("[data-store]").forEach((button) => { button.onclick = () => openStore(Number(button.dataset.store)); });
   $("#reload-stores").onclick = (event) => run(event.currentTarget, refreshField);
@@ -160,11 +151,11 @@ function renderField() {
 }
 
 function showDrawer(title, content) {
-  drawer.innerHTML = `<div class="flow"><div class="row"><h2 id="drawer-title">${esc(title)}</h2><button type="button" id="close-drawer" class="quiet" aria-label="Fechar painel">Fechar</button></div>
+  drawer.innerHTML = `<div class="flow"><div class="row"><h2 id="drawer-title" tabindex="-1">${esc(title)}</h2><button type="button" id="close-drawer" class="quiet" aria-label="Fechar painel">Fechar</button></div>
     ${content}<p class="drawer-error" id="drawer-error" role="alert"></p></div>`;
   $("#close-drawer").onclick = () => drawer.close();
   if (!drawer.open) drawer.showModal();
-  else $("#close-drawer").focus();
+  $("#drawer-title").focus();
 }
 
 function openStore(index) {
@@ -172,8 +163,9 @@ function openStore(index) {
   const saved = state.draft[store.id];
   showDrawer(store.name, `
     <p class="muted">${esc(store.address || (store.city + "/" + store.uf))} · ${esc(store.sector)}</p>
-    ${store.week1 || store.week2 ? `<p>Roteiro atual<br><span class="muted">Semana 1 · ${esc(store.week1 || "—")}<br>Semana 2 · ${esc(store.week2 || "—")}</span></p>` : ""}
-    <form id="store-form" class="flow"><fieldset><legend>Quais dias você pode atender?</legend><div class="choices">
+    ${store.week1 || store.week2 ? `<details><summary>Ver roteiro atual</summary><p class="muted">Semana 1 · ${esc(store.week1 || "—")}<br>Semana 2 · ${esc(store.week2 || "—")}</p></details>` : ""}
+    <form id="store-form" class="flow"><fieldset><legend>Em quais dias você pode atender esta loja?</legend>
+      <p class="muted day-hint">Você pode marcar mais de um dia. Se nenhum funcionar, escolha <strong>Nenhum dia disponível</strong>.</p><div class="choices">
       ${days.map((day, i) => `<label class="choice"><input type="checkbox" name="day" value="${i + 1}" ${saved?.includes(i + 1) ? "checked" : ""}> ${day}</label>`).join("")}
       <label class="choice"><input type="checkbox" name="none" ${saved?.length === 0 ? "checked" : ""}> Nenhum dia disponível</label>
     </div></fieldset><div class="actions"><button type="submit" class="primary" value="next">Salvar e avançar</button><button type="submit" value="close">Salvar e fechar</button></div></form>`);
@@ -209,12 +201,19 @@ function storeSummary(stores) {
 }
 
 function openReview() {
-  showDrawer("Confirme sua sugestão", `${storeSummary(state.stores.map((store) => ({ ...store, days: state.draft[store.id] })))}
-    <button class="primary" type="button" id="confirm">Confirmar e enviar</button>`);
+  showDrawer("Revise seus dias", `<p>Confira os dias de cada loja. Se precisar corrigir, volte à lista. Ao confirmar, sua sugestão será enviada à coordenação.</p>
+    ${storeSummary(state.stores.map((store) => ({ ...store, days: state.draft[store.id] })))}
+    <div class="actions"><button class="primary" type="button" id="confirm">Confirmar e enviar</button>
+    <button type="button" id="back-to-stores">Voltar às lojas</button></div>`);
+  $("#back-to-stores").onclick = () => {
+    drawer.close();
+    $("#review").focus();
+  };
   $("#confirm").onclick = (event) => run(event.currentTarget, async () => {
     state = await request("submit", { signature: state.signature });
     drawer.close();
     renderField();
+    $("#field-title")?.focus();
   }, $("#drawer-error"));
 }
 
