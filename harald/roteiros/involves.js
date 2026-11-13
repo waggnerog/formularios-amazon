@@ -1,13 +1,30 @@
 "use strict";
 
 window.haraldInvolves = (() => {
-  const weekdays = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
   const dayNumbers = [7, 1, 2, 3, 4, 5, 6];
   const styles = { 0: "0", 6: "0", 20: "0" };
   const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-  function schedules(period) {
-    return period === "Quinzenal" ? ["Atual", "Próxima"] : [""];
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+  });
+
+  function dayKey(value) {
+    const parts = Object.fromEntries(dateParts.formatToParts(new Date(value)).map(({type, value}) => [type, value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
+  function dateRange(period, now = new Date()) {
+    const today = dayKey(now);
+    const calendar = new Date(today + "T00:00:00Z");
+    if (period === "yesterday") {
+      calendar.setUTCDate(calendar.getUTCDate() - 1);
+      const yesterday = calendar.toISOString().slice(0, 10);
+      return [yesterday, yesterday];
+    }
+    if (period === "week") calendar.setUTCDate(calendar.getUTCDate() - (calendar.getUTCDay() + 6) % 7);
+    if (period === "month") calendar.setUTCDate(1);
+    return [calendar.toISOString().slice(0, 10), today];
   }
 
   function column(index) {
@@ -19,75 +36,33 @@ window.haraldInvolves = (() => {
       .replace(/[<>&]/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[char]);
   }
 
-  function visitValue(value, description) {
-    const order = value.match(/^([1-9][0-9]{0,2})[º°]?$/);
-    if (order) return { value: order[1] + "º", order: Number(order[1]) };
-    const hours = value.match(/^([01][0-9]|2[0-3]):([0-5][0-9])\s+até\s+([01][0-9]|2[0-3]):([0-5][0-9])$/i);
-    if (hours) {
-      const [, h1, m1, h2, m2] = hours;
-      const start = 60 * Number(h1) + Number(m1);
-      const end = 60 * Number(h2) + Number(m2);
-      if (end > start) return { value: h1 + ":" + m1 + " até " + h2 + ":" + m2, start, end };
-    }
-    throw Error(description + ". Informe a ordem (1º, 2º...) ou um horário como 09:00 até 10:00.");
-  }
-
-  function buildRows(items, formData) {
+  // The API returns newest submissions first, including between pages.
+  function buildRows(items) {
     const rows = [];
     const collaborators = new Set();
-    items.forEach((item, index) => {
-      const name = String(formData.get(`name-${index}`) ?? "").trim();
-      const period = formData.get(`period-${index}`);
-      if (!name || !["Semanal", "Quinzenal"].includes(period)) throw Error("Confira o nome e o período do roteiro.");
+    for (const item of items) {
+      const name = String(item.promoter ?? "").trim();
       const key = name.toLocaleLowerCase("pt-BR");
-      if (collaborators.has(key)) throw Error("Selecione somente uma sugestão por colaborador: " + name + ".");
+      if (!name || collaborators.has(key)) continue;
       collaborators.add(key);
-      const pdvs = new Set();
-      const before = rows.length;
-      const stores = item.stores.map((store, i) => {
-        const suffix = `${index}-${i}`;
-        if (!store.days.length || formData.has(`skip-${suffix}`)) return null;
-        const pdv = String(formData.get(`pdv-${suffix}`) ?? "").trim();
-        const code = String(formData.get(`code-${suffix}`) ?? "").trim();
-        if (!pdv) throw Error("Confira o nome do PDV de " + store.name + ".");
+      const stores = new Map();
+      for (const store of item.stores) {
+        const pdv = String(store.name ?? "").trim();
+        if (!pdv || !store.days.length) continue;
         const identity = pdv.toLocaleLowerCase("pt-BR");
-        if (pdvs.has(identity)) throw Error("PDV repetido no roteiro de " + name + ": " + pdv + ".");
-        pdvs.add(identity);
-        return { store, suffix, pdv, code, planned: false };
-      }).filter(Boolean);
-
-      schedules(period).forEach((week, weekIndex) => {
-        const daily = weekdays.map(() => []);
-        for (const entry of stores) {
-          const { store, suffix, pdv, code } = entry;
-          const values = dayNumbers.map((day, dayIndex) => {
-            if (!store.days.includes(day)) return "";
-            const raw = String(formData.get(`visit-${suffix}-${weekIndex}-${day}`) ?? "").trim();
-            if (!raw) return "";
-            const context = [name, pdv, week, weekdays[dayIndex]].filter(Boolean).join(" · ");
-            const visit = visitValue(raw, context);
-            const conflicts = daily[dayIndex].some((other) => visit.order
-              ? other.order === visit.order
-              : other.start < visit.end && visit.start < other.end);
-            if (conflicts) throw Error(context + ". Há ordem repetida ou horários sobrepostos nesse dia.");
-            daily[dayIndex].push(visit);
-            return visit.value;
-          });
-          if (!values.some(Boolean)) continue;
-          entry.planned = true;
-          const row = Array(21).fill("");
-          row[0] = name;
-          row[4] = week;
-          row[5] = code;
-          row[6] = pdv;
-          row[20] = period;
-          rows.push(row.concat(values));
-        }
-      });
-      const missing = stores.find((entry) => !entry.planned);
-      if (missing) throw Error("Preencha uma visita ou marque Excluir da exportação para " + missing.pdv + ".");
-      if (rows.length === before) throw Error("Preencha pelo menos uma visita para " + name + ".");
-    });
+        const entry = stores.get(identity) ?? { pdv, days: new Set() };
+        store.days.forEach((day) => entry.days.add(day));
+        stores.set(identity, entry);
+      }
+      const order = Array(7).fill(0);
+      for (const {pdv, days} of stores.values()) {
+        const row = Array(21).fill("");
+        row[0] = name;
+        row[6] = pdv;
+        row[20] = "Semanal";
+        rows.push(row.concat(dayNumbers.map((day, index) => days.has(day) ? ++order[index] + "º" : "")));
+      }
+    }
     return rows;
   }
 
@@ -116,5 +91,5 @@ window.haraldInvolves = (() => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  return { weekdays, dayNumbers, schedules, buildRows, makeXlsx, download };
+  return { dayKey, dateRange, buildRows, makeXlsx, download };
 })();

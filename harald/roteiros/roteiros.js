@@ -21,7 +21,6 @@ let roster = [];
 let adminTab = "submissions";
 let filter = "";
 let hasNext = false;
-const selectedForInvolves = new Set();
 const isTestSuggestion = (item) => item.stores.some((store) => store.sector === "TESTE");
 const hasSuggestedDays = (item) => item.stores.some((store) => store.days.length);
 
@@ -230,7 +229,7 @@ function renderAdmin() {
     ${item.read_at ? "" : '<span class="tag pending">Nova sugestão</span>'}</div>
     <div class="actions"><button type="button" data-detail="${item.id}">Ver sugestão</button>
     ${hasSuggestedDays(item) && isTestSuggestion(item) ? `<button type="button" data-involves-test="${item.id}">Testar exportação XLSX</button>` : ""}
-    ${hasSuggestedDays(item) && !isTestSuggestion(item) ? `<label class="choice"><input type="checkbox" data-involves-id="${item.id}" ${selectedForInvolves.has(String(item.id)) ? "checked" : ""}> Selecionar para o Involves</label>` : ""}</div></article>`) : people.map((person) => `<article class="store">
+    </div></article>`) : people.map((person) => `<article class="store">
     <div><h2>${esc(person.name)}</h2><p class="muted">${esc(person.sectors)} · ${person.stores} loja(s)</p><span class="tag">${esc(person.access)}</span></div>
     </article>`);
   $("#header-action").innerHTML = '<a class="button quiet" href="../">Voltar ao Console</a>';
@@ -263,41 +262,15 @@ function renderAdmin() {
   if ($("#more")) $("#more").onclick = (event) => run(event.currentTarget, () => loadSubmissions(submissions.at(-1).id));
   if ($("#export")) $("#export").onclick = (event) => run(event.currentTarget, exportCsv);
   view.querySelectorAll("[data-involves-test]").forEach((button) => {
-    button.onclick = () => run(button, () => prepareInvolves(
-      submissions.filter((item) => String(item.id) === button.dataset.involvesTest && isTestSuggestion(item))
-    ));
+    button.onclick = () => showInvolvesExport(true);
   });
   const involvesButton = $("#export-involves");
-  if (involvesButton) {
-    const updateLabel = () => {
-      involvesButton.textContent = selectedForInvolves.size
-        ? "Exportar para o Involves (XLSX) · " + selectedForInvolves.size
-        : "Exportar para o Involves (XLSX)";
-    };
-    updateLabel();
-    view.querySelectorAll("[data-involves-id]").forEach((input) => {
-      input.onchange = () => {
-        const id = input.dataset.involvesId;
-        if (input.checked) selectedForInvolves.add(id);
-        else selectedForInvolves.delete(id);
-        updateLabel();
-      };
-    });
-    involvesButton.onclick = (event) => run(event.currentTarget, () => {
-      const selected = submissions.filter((item) => selectedForInvolves.has(String(item.id)) && !isTestSuggestion(item));
-      if (selected.length) return prepareInvolves(selected);
-      const available = visible.filter(hasSuggestedDays);
-      if (available.length === 1) return prepareInvolves(available);
-      if (!available.length) throw Error("Nenhuma sugestão com dias disponíveis nesta lista.");
-      throw Error("Marque as sugestões na lista. Para um envio fictício, use Testar exportação XLSX.");
-    });
-  }
+  if (involvesButton) involvesButton.onclick = () => showInvolvesExport();
 }
 
 async function loadSubmissions(before) {
   const page = (await request("admin_list", before ? { before } : {})).submissions;
   submissions = before ? submissions.concat(page) : page;
-  if (!before) selectedForInvolves.clear();
   hasNext = page.length === 50;
   renderAdmin();
 }
@@ -325,7 +298,7 @@ async function loadInvolves() {
   const files = [
     ["fflate", "vendor/fflate-0.8.2.js"],
     ["haraldInvolvesTemplate", "involves-template.js"],
-    ["haraldInvolves", "involves.js?v=4"],
+    ["haraldInvolves", "involves.js?v=5"],
   ];
   await Promise.all(files.filter(([global]) => !window[global]).map(([, src]) => new Promise((resolve, reject) => {
     const script = document.createElement("script");
@@ -340,68 +313,38 @@ async function loadInvolves() {
   return window.haraldInvolves;
 }
 
-async function prepareInvolves(items) {
-  if (!items.length) throw Error("Selecione as sugestões que deseja exportar.");
-  const test = items.every(isTestSuggestion);
-  if (!test && items.some(isTestSuggestion)) throw Error("Baixe os envios de teste em um arquivo separado.");
-  const exporter = await loadInvolves();
-  const weekFields = (store, suffix, weekIndex) => exporter.dayNumbers.map((day, index) => {
-    if (!store.days.includes(day)) return "";
-    return `<label class="field">${exporter.weekdays[index]}
-      <input name="visit-${suffix}-${weekIndex}-${day}" placeholder="1º ou 09:00 até 10:00" maxlength="25">
-    </label>`;
-  }).join("");
-  const suggested = (item, index) => `<fieldset class="panel flow" data-involves-promoter>
-    <legend>${esc(item.promoter)}</legend>
-    <label class="field">Nome cadastrado no Involves<input name="name-${index}" required value="${esc(item.promoter)}"></label>
-    <label class="field">Período<select name="period-${index}" required data-involves-period>
-      <option value="">Selecione</option><option>Semanal</option><option>Quinzenal</option>
-    </select></label>
-    ${item.stores.map((store, i) => {
-      const suffix = `${index}-${i}`;
-      if (!store.days.length) return `<p class="muted"><strong>${esc(store.name)}</strong> · Sem disponibilidade</p>`;
-      return `<details class="panel flow">
-        <summary><strong>${esc(store.name)}</strong> · ${esc(labels(store.days))}</summary>
-        <p class="muted">${esc(store.sector)}${store.visits ? " · Visitas previstas por semana: " + esc(store.visits) : ""}</p>
-        <label class="choice"><input type="checkbox" name="skip-${suffix}" data-involves-skip> Excluir da exportação</label>
-        <fieldset class="flow" data-involves-store>
-          <label class="field">Nome do PDV cadastrado no Involves<input name="pdv-${suffix}" value="${esc(store.name)}"></label>
-          <label class="field">Código do PDV (opcional)<input name="code-${suffix}"></label>
-          <fieldset class="flow" data-week-first><legend>Dias do roteiro</legend>${weekFields(store, suffix, 0)}</fieldset>
-          <fieldset class="flow" data-week-second hidden><legend>Semana próxima</legend>${weekFields(store, suffix, 1)}</fieldset>
-        </fieldset>
-      </details>`;
-    }).join("")}
-  </fieldset>`;
-  showDrawer(test ? "Testar exportação Involves" : "Preparar exportação Involves", `
-    ${test ? '<p class="tag pending">Dados fictícios. Use este arquivo para conferir o modelo.</p>' : ""}
-    <p>Confira os nomes no Involves, selecione o período e preencha a ordem ou o horário das visitas nos dias que você aprovar. Deixe em branco os demais dias.</p>
+function showInvolvesExport(test = false) {
+  showDrawer(test ? "Testar exportação Involves" : "Exportar para o Involves", `
     <form id="involves-form" class="flow">
-      ${items.map(suggested).join("")}
-      <label class="choice"><input type="checkbox" required> Conferi os nomes, a frequência e os dias das visitas</label>
+      ${test ? '<p class="tag pending">Arquivo com sugestões do perfil de teste.</p>' : ""}
+      <label class="field">Data do envio (horário de Brasília)
+        <select name="period"><option value="today">Hoje</option><option value="yesterday">Ontem</option>
+        <option value="week">Esta semana</option><option value="month">Este mês</option></select>
+      </label>
+      <p class="muted">O arquivo usa a última sugestão de cada promotor no período. Os dias marcados saem como visitas semanais, com ordem preenchida automaticamente.</p>
       <button class="primary" type="submit">Baixar XLSX do Involves</button>
     </form>`);
   const form = $("#involves-form");
-  form.querySelectorAll("[data-involves-period]").forEach((select) => {
-    select.onchange = () => {
-      const promoter = select.closest("[data-involves-promoter]");
-      const fortnightly = select.value === "Quinzenal";
-      promoter.querySelectorAll("[data-week-first] legend").forEach((legend) => {
-        legend.textContent = fortnightly ? "Semana atual" : "Dias do roteiro";
-      });
-      promoter.querySelectorAll("[data-week-second]").forEach((week) => { week.hidden = !fortnightly; });
-    };
-  });
-  form.querySelectorAll("[data-involves-skip]").forEach((input) => {
-    input.onchange = () => {
-      input.closest("details").querySelector("[data-involves-store]").disabled = input.checked;
-    };
-  });
   form.onsubmit = (event) => {
     event.preventDefault();
     run(event.submitter, async () => {
-      exporter.download(exporter.buildRows(items, new FormData(form)), test);
-      drawer.close();
+      const period = new FormData(form).get("period");
+      const exporter = await loadInvolves();
+      const [start, end] = exporter.dateRange(period);
+      const items = [];
+      let before;
+      do {
+        const { submissions: page } = await request("admin_list", before ? { before } : {});
+        for (const item of page) {
+          const day = exporter.dayKey(item.submitted_at);
+          if (day >= start && day <= end && isTestSuggestion(item) === test) items.push(item);
+        }
+        before = page.length === 50 && exporter.dayKey(page.at(-1).submitted_at) >= start ? page.at(-1).id : null;
+      } while (before);
+      const rows = exporter.buildRows(items);
+      if (!rows.length) throw Error("Nenhuma sugestão com dias disponíveis nesse período.");
+      exporter.download(rows, test);
+      if (drawer.contains(form) && drawer.open) drawer.close();
       notice(test ? "Planilha de teste gerada com as colunas do Involves." : "Planilha gerada. No Involves, importe pela opção Relatórios.");
     }, $("#drawer-error"));
   };

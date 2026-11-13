@@ -51,8 +51,3 @@ input[type=checkbox]{height:1.15rem;width:1.15rem;margin:0;accent-color:var(--bl
 .listing{margin:0;padding-left:1.25rem;display:grid;gap:.6rem}
 .invite-code{font-family:ui-monospace,monospace;font-weight:700;overflow-wrap:anywhere}
 @media(max-width:540px){.store{grid-template-columns:1fr}.store button{justify-self:start}.masthead .button,.masthead button{padding-inline:.55rem}.panel .actions>*{flex:1 1 auto}}
-#involves-form details{box-shadow:none;padding:1rem;margin-top:.45rem}
-#involves-form details[open]>summary{margin-bottom:.7rem}
-#involves-form details>summary{cursor:pointer}
-#involves-form [data-involves-store]{margin-top:.7rem}
-#involves-form fieldset:disabled{opacity:.55}
