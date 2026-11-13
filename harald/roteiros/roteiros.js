@@ -22,7 +22,8 @@ let adminTab = "submissions";
 let filter = "";
 let hasNext = false;
 const selectedForInvolves = new Set();
-const canExportToInvolves = (item) => item.stores.some((store) => store.days.length) && item.stores.every((store) => store.sector !== "TESTE");
+const isTestSuggestion = (item) => item.stores.some((store) => store.sector === "TESTE");
+const hasSuggestedDays = (item) => item.stores.some((store) => store.days.length);
 
 function notice(message = "", error = false) {
   const element = $("#notice");
@@ -228,7 +229,8 @@ function renderAdmin() {
     <div><h2>${esc(item.promoter)}</h2><p class="muted">${date(item.submitted_at)} · ${item.stores.length} loja(s) · ${esc([...new Set(item.stores.map((s) => s.sector))].join(", "))}</p>
     ${item.read_at ? "" : '<span class="tag pending">Nova sugestão</span>'}</div>
     <div class="actions"><button type="button" data-detail="${item.id}">Ver sugestão</button>
-    ${canExportToInvolves(item) ? `<label class="choice"><input type="checkbox" data-involves-id="${item.id}" ${selectedForInvolves.has(String(item.id)) ? "checked" : ""}> Selecionar para o Involves</label>` : ""}</div></article>`) : people.map((person) => `<article class="store">
+    ${hasSuggestedDays(item) && isTestSuggestion(item) ? `<button type="button" data-involves-test="${item.id}">Testar exportação XLSX</button>` : ""}
+    ${hasSuggestedDays(item) && !isTestSuggestion(item) ? `<label class="choice"><input type="checkbox" data-involves-id="${item.id}" ${selectedForInvolves.has(String(item.id)) ? "checked" : ""}> Selecionar para o Involves</label>` : ""}</div></article>`) : people.map((person) => `<article class="store">
     <div><h2>${esc(person.name)}</h2><p class="muted">${esc(person.sectors)} · ${person.stores} loja(s)</p><span class="tag">${esc(person.access)}</span></div>
     </article>`);
   $("#header-action").innerHTML = '<a class="button quiet" href="../">Voltar ao Console</a>';
@@ -237,7 +239,7 @@ function renderAdmin() {
     <div class="actions"><button type="button" id="submissions" aria-pressed="${adminTab === "submissions"}" class="${adminTab === "submissions" ? "primary" : ""}">Recebidas</button>
     <button type="button" id="people" aria-pressed="${adminTab === "people"}" class="${adminTab === "people" ? "primary" : ""}">Acesso dos promotores</button>
     <button type="button" id="reload-admin">Atualizar</button>
-    ${adminTab === "submissions" ? '<button type="button" id="export">Exportar CSV</button><button type="button" id="export-involves">Preparar exportação Involves</button>' : ""}</div>
+    ${adminTab === "submissions" ? '<button type="button" id="export-involves" class="primary">Exportar para o Involves (XLSX)</button><button type="button" id="export" class="quiet">Relatório de disponibilidade (CSV)</button>' : ""}</div>
     <label class="field">Buscar <input id="filter" type="search" value="${esc(filter)}" placeholder="${adminTab === "submissions" ? "Promotor, posição, cidade, UF ou loja" : "Promotor ou posição"}"></label>
     <div id="admin-list" class="stores">${items.join("") || `<p class="panel muted">${filter ? "Nenhum resultado." : adminTab === "submissions" ? "Nenhuma sugestão recebida." : "Nenhum cadastro vinculado."}</p>`}</div>
     ${adminTab === "submissions" && hasNext ? '<button id="more" type="button">Carregar mais</button>' : ""}
@@ -260,13 +262,17 @@ function renderAdmin() {
   view.querySelectorAll("[data-detail]").forEach((button) => { button.onclick = () => openDetail(button.dataset.detail, button); });
   if ($("#more")) $("#more").onclick = (event) => run(event.currentTarget, () => loadSubmissions(submissions.at(-1).id));
   if ($("#export")) $("#export").onclick = (event) => run(event.currentTarget, exportCsv);
+  view.querySelectorAll("[data-involves-test]").forEach((button) => {
+    button.onclick = () => run(button, () => prepareInvolves(
+      submissions.filter((item) => String(item.id) === button.dataset.involvesTest && isTestSuggestion(item))
+    ));
+  });
   const involvesButton = $("#export-involves");
   if (involvesButton) {
     const updateLabel = () => {
-      involvesButton.disabled = !selectedForInvolves.size;
       involvesButton.textContent = selectedForInvolves.size
-        ? "Preparar exportação Involves (" + selectedForInvolves.size + ")"
-        : "Preparar exportação Involves";
+        ? "Exportar para o Involves (XLSX) · " + selectedForInvolves.size
+        : "Exportar para o Involves (XLSX)";
     };
     updateLabel();
     view.querySelectorAll("[data-involves-id]").forEach((input) => {
@@ -277,9 +283,14 @@ function renderAdmin() {
         updateLabel();
       };
     });
-    involvesButton.onclick = (event) => run(event.currentTarget, () => prepareInvolves(
-      submissions.filter((item) => selectedForInvolves.has(String(item.id)) && canExportToInvolves(item))
-    ));
+    involvesButton.onclick = (event) => run(event.currentTarget, () => {
+      const selected = submissions.filter((item) => selectedForInvolves.has(String(item.id)) && !isTestSuggestion(item));
+      if (selected.length) return prepareInvolves(selected);
+      const available = visible.filter(hasSuggestedDays);
+      if (available.length === 1) return prepareInvolves(available);
+      if (!available.length) throw Error("Nenhuma sugestão com dias disponíveis nesta lista.");
+      throw Error("Marque as sugestões na lista. Para um envio fictício, use Testar exportação XLSX.");
+    });
   }
 }
 
@@ -314,7 +325,7 @@ async function loadInvolves() {
   const files = [
     ["fflate", "vendor/fflate-0.8.2.js"],
     ["haraldInvolvesTemplate", "involves-template.js"],
-    ["haraldInvolves", "involves.js?v=3"],
+    ["haraldInvolves", "involves.js?v=4"],
   ];
   await Promise.all(files.filter(([global]) => !window[global]).map(([, src]) => new Promise((resolve, reject) => {
     const script = document.createElement("script");
@@ -331,6 +342,8 @@ async function loadInvolves() {
 
 async function prepareInvolves(items) {
   if (!items.length) throw Error("Selecione as sugestões que deseja exportar.");
+  const test = items.every(isTestSuggestion);
+  if (!test && items.some(isTestSuggestion)) throw Error("Baixe os envios de teste em um arquivo separado.");
   const exporter = await loadInvolves();
   const weekFields = (store, suffix, weekIndex) => exporter.dayNumbers.map((day, index) => {
     if (!store.days.includes(day)) return "";
@@ -360,7 +373,9 @@ async function prepareInvolves(items) {
       </details>`;
     }).join("")}
   </fieldset>`;
-  showDrawer("Preparar exportação Involves", `<p>Confira os nomes no Involves, selecione o período e preencha a ordem ou o horário das visitas nos dias que você aprovar. Deixe em branco os demais dias.</p>
+  showDrawer(test ? "Testar exportação Involves" : "Preparar exportação Involves", `
+    ${test ? '<p class="tag pending">Dados fictícios. Use este arquivo para conferir o modelo.</p>' : ""}
+    <p>Confira os nomes no Involves, selecione o período e preencha a ordem ou o horário das visitas nos dias que você aprovar. Deixe em branco os demais dias.</p>
     <form id="involves-form" class="flow">
       ${items.map(suggested).join("")}
       <label class="choice"><input type="checkbox" required> Conferi os nomes, a frequência e os dias das visitas</label>
@@ -385,9 +400,9 @@ async function prepareInvolves(items) {
   form.onsubmit = (event) => {
     event.preventDefault();
     run(event.submitter, async () => {
-      exporter.download(exporter.buildRows(items, new FormData(form)));
+      exporter.download(exporter.buildRows(items, new FormData(form)), test);
       drawer.close();
-      notice("Planilha gerada. No Involves, importe pela opção Relatórios.");
+      notice(test ? "Planilha de teste gerada com as colunas do Involves." : "Planilha gerada. No Involves, importe pela opção Relatórios.");
     }, $("#drawer-error"));
   };
 }

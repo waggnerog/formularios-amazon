@@ -108,10 +108,10 @@ window.haraldInvolves = (() => {
     return zip.zipSync(files);
   }
 
-  function download(rows) {
+  function download(rows, test = false) {
     const bytes = makeXlsx(rows, window.haraldInvolvesTemplate, window.fflate);
     const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
-    const link = Object.assign(document.createElement("a"), { href: url, download: "import_roteiros_relatorio.xlsx" });
+    const link = Object.assign(document.createElement("a"), { href: url, download: (test ? "TESTE_" : "") + "import_roteiros_relatorio.xlsx" });
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
