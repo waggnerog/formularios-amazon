@@ -18,6 +18,12 @@ const date = (value) => dateFormat.format(new Date(value));
 let state;
 let submissions = [];
 let roster = [];
+let pendingPeriod = "all";
+let pendingReport = null;
+const pendingPeriods = [
+  ["all", "Desde o início"], ["today", "Hoje"], ["yesterday", "Ontem"],
+  ["week", "Esta semana"], ["month", "Este mês"],
+];
 let adminTab = "submissions";
 let filter = "";
 let hasNext = false;
@@ -222,27 +228,44 @@ function renderAdmin() {
     const q = filter.toLocaleLowerCase("pt-BR").trim();
     return !q || [item.promoter, ...item.stores.flatMap((s) => [s.sector, s.uf, s.city, s.name])].some((x) => String(x ?? "").toLocaleLowerCase("pt-BR").includes(q));
   });
-  const people = roster.filter((person) => [person.name,person.sectors].some((x) => x.toLocaleLowerCase("pt-BR").includes(filter.toLocaleLowerCase("pt-BR").trim())));
+  const pending = adminTab === "pending";
+  const q = filter.toLocaleLowerCase("pt-BR").trim();
+  const people = (pending ? pendingReport?.people ?? [] : roster)
+    .filter((person) => [person.name, person.sectors].some((x) => x.toLocaleLowerCase("pt-BR").includes(q)));
+  const empty = filter ? "Nenhum resultado." : pending
+    ? pendingReport
+      ? pendingReport.total ? "Todos os promotores com acesso responderam nesse período." : "Nenhum promotor com acesso ao formulário."
+      : "Carregando pendências…"
+    : adminTab === "submissions" ? "Nenhuma sugestão recebida." : "Nenhum cadastro vinculado.";
   const items = adminTab === "submissions" ? visible.map((item) => `<article class="store">
     <div><h2>${esc(item.promoter)}</h2><p class="muted">${date(item.submitted_at)} · ${item.stores.length} loja(s) · ${esc([...new Set(item.stores.map((s) => s.sector))].join(", "))}</p>
     ${item.read_at ? "" : '<span class="tag pending">Nova sugestão</span>'}</div>
     <div class="actions"><button type="button" data-detail="${item.id}">Ver sugestão</button>
     ${hasSuggestedDays(item) && isTestSuggestion(item) ? `<button type="button" data-involves-test="${item.id}">Testar exportação XLSX</button>` : ""}
     </div></article>`) : people.map((person) => `<article class="store">
-    <div><h2>${esc(person.name)}</h2><p class="muted">${esc(person.sectors)} · ${person.stores} loja(s)</p><span class="tag">${esc(person.access)}</span></div>
+    <div><h2>${esc(person.name)}</h2><p class="muted">${esc(person.sectors)} · ${person.stores} loja(s)</p>${pending ? '<span class="tag pending">Aguardando envio</span>' : `<span class="tag">${esc(person.access)}</span>`}</div>
     </article>`);
   $("#header-action").innerHTML = '<a class="button quiet" href="../">Voltar ao Console</a>';
   view.innerHTML = `<section class="flow">
     <div class="heading"><h1>Sugestões de roteiro</h1><p class="muted">Disponibilidade de atendimento dos promotores horistas.</p></div>
     <div class="actions"><button type="button" id="submissions" aria-pressed="${adminTab === "submissions"}" class="${adminTab === "submissions" ? "primary" : ""}">Recebidas</button>
+    <button type="button" id="pending" aria-pressed="${pending}" class="${pending ? "primary" : ""}">Quem ainda não respondeu</button>
     <button type="button" id="people" aria-pressed="${adminTab === "people"}" class="${adminTab === "people" ? "primary" : ""}">Acesso dos promotores</button>
     <button type="button" id="reload-admin">Atualizar</button>
     ${adminTab === "submissions" ? '<button type="button" id="export-involves" class="primary">Exportar para o Involves (XLSX)</button><button type="button" id="export" class="quiet">Relatório de disponibilidade (CSV)</button>' : ""}</div>
+    ${pending ? `<div class="panel flow">
+      <label class="field">Data do envio (horário de Brasília)
+        <select id="pending-period">${pendingPeriods.map(([key, label]) => `<option value="${key}" ${pendingPeriod === key ? "selected" : ""}>${label}</option>`).join("")}</select>
+      </label>
+      ${pendingReport ? `<div class="actions" role="status"><span class="tag pending">Pendentes: ${pendingReport.people.length}</span>
+        <span class="tag good">Responderam: ${pendingReport.responded}</span><span class="tag">Total com acesso: ${pendingReport.total}</span></div>` : ""}
+      <p class="muted">A lista mostra os promotores com lojas vinculadas e acesso ao formulário. A resposta conta depois que o promotor confirma o envio.</p>
+    </div>` : ""}
     <label class="field">Buscar <input id="filter" type="search" value="${esc(filter)}" placeholder="${adminTab === "submissions" ? "Promotor, posição, cidade, UF ou loja" : "Promotor ou posição"}"></label>
-    <div id="admin-list" class="stores">${items.join("") || `<p class="panel muted">${filter ? "Nenhum resultado." : adminTab === "submissions" ? "Nenhuma sugestão recebida." : "Nenhum cadastro vinculado."}</p>`}</div>
+    <div id="admin-list" class="stores">${items.join("") || `<p class="panel muted">${empty}</p>`}</div>
     ${adminTab === "submissions" && hasNext ? '<button id="more" type="button">Carregar mais</button>' : ""}
   </section>`;
-  for (const tab of ["submissions","people"]) {
+  for (const tab of ["submissions","pending","people"]) {
     $("#" + tab).onclick = (event) => run(event.currentTarget, async () => {
       adminTab = tab;
       filter = "";
@@ -250,6 +273,13 @@ function renderAdmin() {
     });
   }
   $("#reload-admin").onclick = (event) => run(event.currentTarget, refreshAdmin);
+  const period = $("#pending-period");
+  if (period) period.onchange = () => run(period, async () => {
+    pendingPeriod = period.value;
+    pendingReport = null;
+    renderAdmin();
+    await refreshAdmin();
+  });
   $("#filter").oninput = (event) => {
     const input = event.currentTarget;
     filter = input.value;
@@ -276,7 +306,14 @@ async function loadSubmissions(before) {
 
 async function refreshAdmin() {
   if (adminTab === "submissions") await loadSubmissions();
-  else {
+  else if (adminTab === "pending") {
+    const period = pendingPeriod;
+    const report = await request("admin_pending", { period });
+    if (adminTab === "pending" && period === pendingPeriod) {
+      pendingReport = report;
+      renderAdmin();
+    }
+  } else {
     roster = (await request("admin_people")).people;
     renderAdmin();
   }
