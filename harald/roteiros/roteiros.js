@@ -87,13 +87,15 @@ async function run(button, operation, errorTarget) {
 function renderLogin() {
   $("#header-action").innerHTML = "";
   view.innerHTML = `<section class="panel narrow flow">
+    <div class="promoter-area-label">ÁREA DO PROMOTOR</div>
     <div class="heading"><h1>Disponibilidade de visitas</h1>
-    <p class="muted">Entre com seu CPF e sua senha para ver suas lojas.</p></div>
+    <p class="muted">Este acesso é somente para promotores vinculados. Entre com CPF e senha para ver suas lojas.</p></div>
     <form class="flow" id="login">
       <label class="field">CPF <small class="muted">Digite os 11 números, sem pontos e traço.</small><input name="cpf" inputmode="numeric" pattern="[0-9]{11}" maxlength="14" autocomplete="username" required></label>
       <label class="field">Senha<input name="password" type="password" inputmode="numeric" autocomplete="current-password" required></label>
-      <button type="submit" class="primary">Entrar</button>
+      <button type="submit" class="primary">Entrar como promotor</button>
     </form>
+    <div class="coord-entry"><div><b>Você é da coordenação?</b><small>Não use CPF nesta tela. O Console administrativo usa e-mail e senha.</small></div><a class="button" href="../">Abrir Console HARALD</a></div>
   </section>`;
   $("#login [name=cpf]").oninput = (event) => {
     event.target.value = event.target.value.replace(/[^0-9]/g, "").slice(0, 11);
