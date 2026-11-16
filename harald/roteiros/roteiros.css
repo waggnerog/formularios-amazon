@@ -53,3 +53,10 @@ input[type=checkbox]{height:1.15rem;width:1.15rem;margin:0;accent-color:var(--bl
 @media(max-width:540px){.store{grid-template-columns:1fr}.store button{justify-self:start}.masthead .button,.masthead button{padding-inline:.55rem}.panel .actions>*{flex:1 1 auto}}
 .day-hint{margin-bottom:.75rem}
 .field small{font-weight:400}
+
+.promoter-area-label{width:max-content;padding:.28rem .55rem;border-radius:999px;background:#eef0ff;color:#3440b4;font-size:.72rem;font-weight:850;letter-spacing:.08em}
+.coord-entry{display:grid;gap:.7rem;margin-top:.25rem;padding-top:1rem;border-top:1px solid var(--line)}
+.coord-entry>div{display:grid;gap:.2rem}
+.coord-entry b{font-size:.9rem}
+.coord-entry small{color:var(--muted);font-size:.82rem}
+.coord-entry .button{width:100%}
