@@ -48,6 +48,8 @@ legend{font-weight:750;margin-bottom:.65rem}
 .choice:has(input:checked){background:var(--soft);border-color:#aeb5ff}
 .choice:has(input:disabled){background:#f4f6fc;color:var(--muted);cursor:default}
 .visit-count{margin-top:.65rem;font-weight:650;color:var(--dark)}
+.planning-notes:not(:empty){display:grid;gap:.5rem;margin:.65rem 0}
+.planning-notes p{background:#fff1e2;color:#733807;border-radius:8px;padding:.55rem .7rem;font-size:.9rem}
 input[type=checkbox]{height:1.15rem;width:1.15rem;margin:0;accent-color:var(--blue)}
 .drawer-error{color:#832b1a}
 .listing{margin:0;padding-left:1.25rem;display:grid;gap:.6rem}
