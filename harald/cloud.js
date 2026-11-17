@@ -325,5 +325,10 @@ async function start(){
  try{session=JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null");}catch(e){session=null;}
  if(session?.access_token){await enter();}else gateForm();
 }
-window.haraldCloud={start,scheduleSync,reload:loadData,isReady:()=>isReady,role:()=>role};
+window.haraldCloud={start,scheduleSync,reload:loadData,isReady:()=>isReady,role:()=>role,
+ getInvolvesRoutes:()=>api("rpc/harald_involves_route_read",{method:"POST",body:{}}),
+ replaceInvolvesRoute:(environment,fileName,rows,revision)=>api("rpc/harald_involves_route_replace",{
+   method:"POST",body:{p_environment:environment,p_file_name:fileName,p_rows:rows,p_expected_revision:revision},
+ }),
+};
 })();

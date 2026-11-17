@@ -1,0 +1,44 @@
+.hrPage{display:grid;gap:15px;color:#25324b}
+.hrHeading,.hrFilters,.hrActions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hrHeading,.hrFilters{justify-content:space-between}
+.hrHeading p,.hrUpload p{color:#53617a;margin-top:5px}
+.hrSources{list-style:none;padding:0;margin:0;display:grid;gap:6px;color:#53617a;font-size:12px}
+.hrSources li{display:flex;gap:6px 10px;align-items:baseline;flex-wrap:wrap;overflow-wrap:anywhere}
+.hrSources b{min-width:58px;color:#25324b}
+.hrSources small{color:#64738c}
+.hrFilters,.hrStatus{padding:12px 14px;background:#fff;border:1px solid #dce4ee;border-radius:12px}
+.hrFilters label{display:flex;align-items:center;gap:8px}
+.hrLegend{display:flex;align-items:center;gap:7px;font-size:12px;color:#53617a}
+.hrLegend i{width:12px;height:12px;border-radius:4px;background:#d3f1e2}
+.hrLegend i+ i{background:#f0f3f7;margin-left:5px}
+.hrList{display:grid;gap:8px}
+.hrPromoter{border:1px solid #dde5ef;border-radius:13px;background:#fff;overflow:hidden}
+.hrPromoter summary{display:grid;grid-template-columns:minmax(170px,2fr) minmax(95px,1fr) auto 16px;align-items:center;gap:12px;cursor:pointer;list-style:none;padding:13px 15px}
+.hrPromoter summary::-webkit-details-marker{display:none}
+.hrPromoter summary:focus-visible{outline:3px solid #7984e6;outline-offset:-3px}
+.hrPromoter[open] summary{background:#f6f8ff;border-bottom:1px solid #e3e9f3}
+.hrPerson,.hrStore>div:first-child{display:grid;gap:3px}
+.hrPerson small,.hrStore small,.hrPhone,.hrCount{color:#586782}
+.hrCount,.hrPhone{font-size:12px}
+.hrChevron{font-size:21px;text-align:right;line-height:1}
+.hrPromoter[open] .hrChevron{transform:rotate(180deg)}
+.hrContact{padding:8px 15px 0;text-align:right}
+.hrContact a{font-size:12px;font-weight:700;color:#1e6049}
+.hrStores{margin:0;list-style:none;padding:4px 15px 10px}
+.hrStore{padding:11px 0;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 18px}
+.hrStore+.hrStore{border-top:1px solid #e8edf4}
+.hrDays{display:grid;grid-template-columns:repeat(7,36px);gap:4px}
+.hrDay{display:grid;place-items:center;min-height:28px;border-radius:7px;font-size:11px;font-weight:700;background:#f0f3f7;color:#67768b}
+.hrDay.hrOn{background:#d7f2e3;color:#144f3c}
+.hrUpload{border:1px solid #dce4ef;border-radius:17px;width:min(480px,calc(100% - 28px));padding:22px;color:#25324b}
+.hrUpload::backdrop{background:#17254470}
+.hrUploadFields,.hrUploadFields label{display:grid;gap:9px}
+.hrUpload .hrError{font-size:13px;color:#982e2e}
+.hrUpload .hrError:empty{display:none}
+@media(max-width:630px){
+ .hrPromoter summary{grid-template-columns:minmax(0,1fr) auto 12px;gap:5px 9px}
+ .hrPhone{grid-column:1;grid-row:2}
+ .hrPerson small,.hrCount{font-size:10px}
+ .hrStore{grid-template-columns:1fr}
+ .hrDays{grid-template-columns:repeat(7,minmax(0,1fr));max-width:340px}
+}
