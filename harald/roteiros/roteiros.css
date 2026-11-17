@@ -46,6 +46,8 @@ legend{font-weight:750;margin-bottom:.65rem}
 .choices{display:grid;gap:.5rem}
 .choice{display:flex;gap:.65rem;align-items:center;border:1px solid var(--line);border-radius:10px;padding:.55rem .75rem;min-height:43px;cursor:pointer}
 .choice:has(input:checked){background:var(--soft);border-color:#aeb5ff}
+.choice:has(input:disabled){background:#f4f6fc;color:var(--muted);cursor:default}
+.visit-count{margin-top:.65rem;font-weight:650;color:var(--dark)}
 input[type=checkbox]{height:1.15rem;width:1.15rem;margin:0;accent-color:var(--blue)}
 .drawer-error{color:#832b1a}
 .listing{margin:0;padding-left:1.25rem;display:grid;gap:.6rem}

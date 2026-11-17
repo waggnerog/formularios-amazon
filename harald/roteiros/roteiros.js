@@ -9,6 +9,13 @@ const publicKey = "sb_publishable_6JplhqTzxWN9hTcIhQkcQw_glWN8TyJ";
 const fieldSession = "harald.routes.session";
 const consoleSession = "harald.auth.session.v1";
 const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+const routeDays = days.slice(0, 4);
+const routeException = "Se alguma loja precisar de atendimento fora desses dias por necessidade do cliente, fale com o Luis para alinharmos a melhor opção.";
+const visitLimit = (store) => {
+  const limit = Number(store.visits);
+  return Number.isInteger(limit) && limit >= 1 && limit <= routeDays.length ? limit : 0;
+};
+const visitCount = (count) => count === 1 ? "1 visita" : count + " visitas";
 const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const own = (record, key) => Object.hasOwn(record, key);
@@ -143,13 +150,14 @@ function renderField() {
   const complete = done === state.stores.length;
   view.innerHTML = `<section class="flow">
     <div class="heading"><h1 id="field-title" tabindex="-1">Minhas lojas</h1>
-      <p class="muted">${firstName ? "Olá, " + esc(firstName) + "! " : ""}Toque em <strong>Escolher dias</strong> e marque quando pode atender cada loja.</p></div>
+      <p>${firstName ? "Olá, " + esc(firstName) + "! " : ""}Vamos organizar seu roteiro de <strong>segunda a quinta</strong>. Escolha os dias que funcionam melhor para você, dentro da frequência prevista para cada loja.</p>
+      <p class="muted">${routeException}</p></div>
     <div class="panel flow"><div class="row"><strong>${done} de ${state.stores.length} lojas respondidas</strong>
       <button type="button" id="reload-stores" class="quiet">Atualizar lojas</button></div>
       <progress class="progress" aria-label="Lojas respondidas" value="${done}" max="${state.stores.length}"></progress></div>
     <div class="stores">${state.stores.map((store, index) => `<article class="store">
       <div><h2>${esc(store.name)}</h2><p class="muted">${esc(store.city)}/${esc(store.uf)} · ${esc(store.sector)}${store.visits ? " · " + esc(store.visits) + " visita(s) por semana" : ""}</p>
-      ${own(state.draft, store.id) ? `<span class="tag good">${esc(labels(state.draft[store.id]))}</span>` : '<span class="tag pending">Falta responder</span>'}</div>
+      ${own(state.draft, store.id) ? `<span class="tag ${state.draft[store.id].length < visitLimit(store) ? "pending" : "good"}">${esc(labels(state.draft[store.id]))}</span>` : '<span class="tag pending">Falta responder</span>'}</div>
       <button type="button" data-store="${index}" aria-label="${own(state.draft, store.id) ? "Editar dias de" : "Escolher dias de"} ${esc(store.name)}">${own(state.draft, store.id) ? "Editar dias" : "Escolher dias"}</button></article>`).join("")}</div>
     <div class="row"><p class="muted">${complete ? "Tudo preenchido. Confira os dias antes de enviar." : "Salve cada loja. Quando responder todas, você poderá revisar e enviar."}</p><button type="button" class="primary" id="review" ${complete ? "" : "disabled"}>Revisar e enviar</button></div>
   </section>`;
@@ -169,20 +177,38 @@ function showDrawer(title, content) {
 function openStore(index) {
   const store = state.stores[index];
   const saved = state.draft[store.id];
+  const limit = visitLimit(store);
+  if (!limit) {
+    showDrawer(store.name, '<p>A frequência semanal desta loja precisa ser conferida. Fale com o Luis para ajustar seu roteiro.</p>');
+    return;
+  }
   showDrawer(store.name, `
     <p class="muted">${esc(store.address || (store.city + "/" + store.uf))} · ${esc(store.sector)}</p>
     ${store.week1 || store.week2 ? `<details><summary>Ver roteiro atual</summary><p class="muted">Semana 1 · ${esc(store.week1 || "—")}<br>Semana 2 · ${esc(store.week2 || "—")}</p></details>` : ""}
     <form id="store-form" class="flow"><fieldset><legend>Em quais dias você pode atender esta loja?</legend>
-      <p class="muted day-hint">Você pode marcar mais de um dia. Se nenhum funcionar, escolha <strong>Nenhum dia disponível</strong>.</p><div class="choices">
-      ${days.map((day, i) => `<label class="choice"><input type="checkbox" name="day" value="${i + 1}" ${saved?.includes(i + 1) ? "checked" : ""}> ${day}</label>`).join("")}
+      <p class="muted day-hint">Esta loja tem <strong>${visitCount(limit)} por semana</strong>. Escolha até ${limit} ${limit === 1 ? "dia" : "dias"} de segunda a quinta. Para trocar um dia, desmarque a escolha anterior.</p><div class="choices">
+      ${routeDays.map((day, i) => `<label class="choice"><input type="checkbox" name="day" value="${i + 1}" ${saved?.includes(i + 1) ? "checked" : ""}> ${day}</label>`).join("")}
       <label class="choice"><input type="checkbox" name="none" ${saved?.length === 0 ? "checked" : ""}> Nenhum dia disponível</label>
-    </div></fieldset><div class="actions"><button type="submit" class="primary" value="next">Salvar e avançar</button><button type="submit" value="close">Salvar e fechar</button></div></form>`);
+    </div><p id="visit-count" class="visit-count" role="status"></p>
+      <p id="availability-note" class="muted">Se sua disponibilidade for menor que a frequência da loja, fale com o Luis para combinar o atendimento.</p>
+    </fieldset><div class="actions"><button type="submit" class="primary" value="next">Salvar e avançar</button><button type="submit" value="close">Salvar e fechar</button></div></form>`);
   const form = $("#store-form");
-  form.onchange = (event) => {
-    if (!event.target.checked) return;
-    if (event.target.name === "none") form.querySelectorAll('[name="day"]').forEach((input) => { input.checked = false; });
-    else form.elements.none.checked = false;
+  const dayInputs = [...form.querySelectorAll('[name="day"]')];
+  const updateChoices = () => {
+    const selected = dayInputs.filter((input) => input.checked).length;
+    dayInputs.forEach((input) => { input.disabled = selected >= limit && !input.checked; });
+    $("#visit-count").textContent = selected + " de " + limit + (limit === 1 ? " dia selecionado." : " dias selecionados.") +
+      (selected === limit ? " Limite atingido." : "");
+    $("#availability-note").hidden = selected === limit;
   };
+  form.onchange = (event) => {
+    if (event.target.checked) {
+      if (event.target.name === "none") dayInputs.forEach((input) => { input.checked = false; });
+      else form.elements.none.checked = false;
+    }
+    updateChoices();
+  };
+  updateChoices();
   form.onsubmit = (event) => {
     event.preventDefault();
     run(event.submitter, async () => {
@@ -209,7 +235,9 @@ function storeSummary(stores) {
 }
 
 function openReview() {
-  showDrawer("Revise seus dias", `<p>Confira os dias de cada loja. Se precisar corrigir, volte à lista. Ao confirmar, sua sugestão será enviada à coordenação.</p>
+  const hasLimitedAvailability = state.stores.some((store) => (state.draft[store.id]?.length ?? 0) < visitLimit(store));
+  showDrawer("Revise seus dias", `<p>Confira os dias escolhidos para cada loja. Ao confirmar, sua sugestão será enviada à coordenação.</p>
+    ${hasLimitedAvailability ? '<p class="tag pending">Algumas lojas ficaram com menos dias do que o previsto. Fale com o Luis para combinar como completar o atendimento.</p>' : ""}
     ${storeSummary(state.stores.map((store) => ({ ...store, days: state.draft[store.id] })))}
     <div class="actions"><button class="primary" type="button" id="confirm">Confirmar e enviar</button>
     <button type="button" id="back-to-stores">Voltar às lojas</button></div>`);
