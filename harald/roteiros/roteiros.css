@@ -64,3 +64,42 @@ input[type=checkbox]{height:1.15rem;width:1.15rem;margin:0;accent-color:var(--bl
 .coord-entry b{font-size:.9rem}
 .coord-entry small{color:var(--muted);font-size:.82rem}
 .coord-entry .button{width:100%}
+
+/* Coordenação: cada dia mantém as lojas e a identificação no mesmo cartão. */
+dialog.weekly-drawer{width:min(100%,880px);padding:0 1.5rem 1.5rem;background:#f7f8fc}
+.weekly-drawer>.flow{gap:1rem}
+.weekly-drawer .drawer-heading{position:sticky;top:0;z-index:1;flex-wrap:nowrap;align-items:flex-start;padding:1.25rem 0 1rem;background:#f7f8fc;border-bottom:1px solid var(--line)}
+.weekly-drawer .drawer-heading>div{min-width:0}
+.weekly-drawer #drawer-title{font-size:1.55rem;line-height:1.2;overflow-wrap:anywhere}
+.weekly-drawer #close-drawer{flex:none;background:#fff;border-color:var(--line)}
+.schedule-eyebrow{font-size:.72rem;font-weight:850;letter-spacing:.11em;color:var(--blue);margin-bottom:.3rem}
+.schedule-context{font-size:.86rem;color:var(--muted)}
+.schedule-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid #dce0f4;border-radius:13px;background:#eef0ff;padding:.85rem 0}
+.schedule-totals>div{display:grid;gap:.1rem;text-align:center;padding:0 .55rem}
+.schedule-totals>div+div{border-left:1px solid #d3d9f1}
+.schedule-totals b{font-size:1.5rem;line-height:1.2;color:var(--dark)}
+.schedule-totals span{font-size:.76rem;line-height:1.3;color:var(--muted)}
+.schedule-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem;align-items:start}
+.schedule-day{min-width:0;background:#fff;border:1px solid #cdd4e8;border-radius:13px;overflow:hidden;break-inside:avoid}
+.schedule-day>header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.75rem .85rem;background:#e9edff;border-bottom:1px solid #d6dcf1}
+.schedule-day>header>div{display:flex;align-items:center;gap:.55rem;min-width:0}
+.schedule-day-short{display:grid;place-items:center;min-width:35px;height:31px;border-radius:7px;background:#424cc9;color:#fff;font-size:.67rem;font-weight:850;letter-spacing:.03em}
+.schedule-day h3{font-size:.97rem;color:#24316a}
+.schedule-count{flex:none;font-size:.73rem;font-weight:750;color:#34438a}
+.schedule-day ul,.schedule-unassigned ul{list-style:none;padding:0;margin:0}
+.schedule-store{padding:.75rem .85rem;display:grid;gap:.3rem;overflow-wrap:anywhere}
+.schedule-store+.schedule-store{border-top:1px solid #e9edf5}
+.schedule-store>strong{font-size:.87rem;line-height:1.4;font-weight:750;color:#192340}
+.schedule-store>span{display:flex;align-items:baseline;gap:.3rem .6rem;flex-wrap:wrap;color:#52617c;font-size:.75rem;line-height:1.4}
+.schedule-sector{font-size:.69rem;color:#52617c;font-weight:650}
+.schedule-day.is-empty{border-style:dashed;border-color:#d5dbe7}
+.schedule-day.is-empty>header{background:#f0f2f7;border-bottom-color:#e3e7ef}
+.schedule-day.is-empty .schedule-day-short{background:#e0e4ed;color:#626d83}
+.schedule-day.is-empty h3,.schedule-day.is-empty .schedule-count{color:#626d83}
+.schedule-empty{padding:.9rem .85rem;color:#67748b;font-size:.81rem}
+.schedule-unassigned{border:1px solid #e9d3b5;background:#fffaf3;border-radius:13px;padding:.85rem}
+.schedule-unassigned>p{font-size:.82rem;margin-top:.3rem}
+.schedule-unassigned .schedule-store{padding-inline:0}
+.schedule-footnote{font-size:.76rem;color:#52617c;line-height:1.45}
+@media(max-width:620px){dialog.weekly-drawer{padding-inline:1rem}.schedule-week{grid-template-columns:1fr}.weekly-drawer #drawer-title{font-size:1.3rem}.schedule-totals span{font-size:.7rem}.schedule-day h3{font-size:1rem}.schedule-store>strong{font-size:.9rem}}
+@media print{body:has(.weekly-drawer[open]){background:white}body:has(.weekly-drawer[open])>.masthead,body:has(.weekly-drawer[open])>main{display:none}dialog.weekly-drawer[open]{position:static;display:block;width:100%;height:auto;overflow:visible;box-shadow:none;padding:0;background:white}.weekly-drawer .drawer-heading{position:static;background:white}.weekly-drawer #close-drawer{display:none}.schedule-day{break-inside:avoid}}

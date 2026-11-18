@@ -179,8 +179,9 @@ function renderField() {
   $("#review").onclick = openReview;
 }
 
-function showDrawer(title, content) {
-  drawer.innerHTML = `<div class="flow"><div class="row"><h2 id="drawer-title" tabindex="-1">${esc(title)}</h2><button type="button" id="close-drawer" class="quiet" aria-label="Fechar painel">Fechar</button></div>
+function showDrawer(title, content, weekly = false) {
+  drawer.classList.toggle("weekly-drawer", weekly);
+  drawer.innerHTML = `<div class="flow"><div class="row drawer-heading"><div>${weekly ? '<p class="schedule-eyebrow">SUGESTÃO DE ROTEIRO</p>' : ''}<h2 id="drawer-title" tabindex="-1">${esc(title)}</h2></div><button type="button" id="close-drawer" class="quiet" aria-label="Fechar painel">Fechar</button></div>
     ${content}<p class="drawer-error" id="drawer-error" role="alert"></p></div>`;
   $("#close-drawer").onclick = () => drawer.close();
   if (!drawer.open) drawer.showModal();
@@ -371,13 +372,33 @@ async function refreshAdmin() {
 
 function openDetail(id, button) {
   const item = submissions.find((s) => String(s.id) === id);
-  showDrawer(item.promoter, `<p class="muted">Enviado em ${date(item.submitted_at)}${item.entered_name !== item.promoter ? " · Nome informado: " + esc(item.entered_name) : ""}</p>
-    ${storeSummary(item.stores)}`);
+  showDrawer(item.promoter, `<p class="schedule-context">Enviado em <strong>${date(item.submitted_at)}</strong> · Dias escolhidos pelo promotor.</p>
+    ${weeklySummary(item.stores)}`, true);
   if (!item.read_at) run(button, async () => {
     await request("admin_read", { id });
     item.read_at = new Date().toISOString();
     button.closest("article").querySelector(".tag")?.remove();
   }, $("#drawer-error"));
+}
+
+function weeklySummary(stores) {
+  const entries = stores.map((store) => ({ store, days: [...new Set((store.days || []).filter((day) => Number.isInteger(day) && day >= 1 && day <= 7))] }));
+  const chosen = entries.filter((entry) => entry.days.length);
+  const visits = entries.reduce((total, entry) => total + entry.days.length, 0);
+  const weekdays = days.map((name, index) => ({ number: index + 1, name, entries: entries.filter((entry) => entry.days.includes(index + 1)) }))
+    .filter((day) => day.number <= 5 || day.entries.length);
+  const card = (entry) => `<li class="schedule-store"><strong>${esc(entry.store.name)}</strong><span>${esc(entry.store.city)} / ${esc(entry.store.uf)}<span class="schedule-sector">${esc(entry.store.sector)}</span></span></li>`;
+  const missing = entries.filter((entry) => !entry.days.length);
+  return `<div class="schedule-totals" aria-label="Resumo da sugestão">
+    <div><b>${chosen.length}</b><span>${chosen.length === 1 ? 'loja com dia definido' : 'lojas com dias definidos'}</span></div>
+    <div><b>${visits}</b><span>${visits === 1 ? 'visita sugerida' : 'visitas sugeridas'}</span></div>
+    <div><b>${weekdays.filter((day) => day.entries.length).length}</b><span>dias com visitas</span></div>
+    </div><div class="schedule-week" aria-label="Lojas por dia da semana">${weekdays.map((day) => `<section class="schedule-day${day.entries.length ? '' : ' is-empty'}" aria-labelledby="schedule-day-${day.number}">
+      <header><div><span class="schedule-day-short" aria-hidden="true">${day.name.slice(0, 3).toLocaleUpperCase('pt-BR')}</span><h3 id="schedule-day-${day.number}">${esc(day.name)}${day.number <= 5 ? '-feira' : ''}</h3></div><span class="schedule-count">${day.entries.length} ${day.entries.length === 1 ? 'loja' : 'lojas'}</span></header>
+      ${day.entries.length ? `<ul>${day.entries.map(card).join('')}</ul>` : '<p class="schedule-empty">Sem loja sugerida neste dia.</p>'}
+    </section>`).join('')}</div>
+    ${missing.length ? `<section class="schedule-unassigned"><h3>Sem dia definido · ${missing.length} ${missing.length === 1 ? 'loja' : 'lojas'}</h3><p class="muted">Estas lojas foram enviadas sem dia disponível.</p><ul>${missing.map(card).join('')}</ul></section>` : ''}
+    <p class="schedule-footnote">Esta é a sugestão enviada pelo promotor. A programação no Involves deve ser conferida separadamente.</p>`;
 }
 
 async function loadInvolves() {
