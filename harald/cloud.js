@@ -118,6 +118,7 @@ async function loadData(){
  const sourceState=sourceStates[0]||null;
  const norm=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-BR").trim();
  const digits=v=>String(v||"").replace(/\D/g,"");
+ const phone=v=>{const n=digits(v);return n.length===12&&n.startsWith("0")?n.slice(1):n;};
  const personId=name=>"horista:"+norm(name).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
  const storeKey=row=>[row.sector_code,digits(row.cnpj),norm(row.store_name).replace(/[^a-z0-9]+/g,"-")].filter(Boolean).join("|");
  const dayMap={SEG:1,TER:2,QUA:3,QUI:4,SEX:5,SAB:6,DOM:7};
@@ -143,7 +144,7 @@ async function loadData(){
    rev:row.reviewed||"Controle Operacional",phase:"HORISTAS",channel:"",legal:"",charge:1,
    weekKm:Number(row.km_store_week||0),rateAvg:Number(row.avg_displacement||0),
    situation:row.registration_pending||"",sourceObs:row.registration_pending||"",
-   sourceStatus:sourceStatusToPerson(groups.get(row.sector_code)||[]),routeStatus:row.route_status||"",promoterName:row.promoter_name||""
+   sourceStatus:sourceStatusToPerson([row]),routeStatus:row.route_status||"",promoterName:row.promoter_name||"",promoterPhone:phone(row.phone),promoterId:row.promoter_name?personId(row.promoter_name):null
   };
  });
  const visibleTeams=[...groups.entries()].map(([sector,rows])=>{
@@ -170,7 +171,7 @@ async function loadData(){
  const persons=[...personGroups.entries()].map(([id,rows])=>{
   const first=rows.find(x=>x.phone||x.email)||rows[0];
   return {
-   id,full_name:first.promoter_name,whatsapp:first.phone||"",registration_number:null,supervisor_name:null,supervisor_phone:null,
+   id,full_name:first.promoter_name,whatsapp:phone(first.phone),registration_number:null,supervisor_name:null,supervisor_phone:null,
    status:sourceStatusToPerson(rows),hiring_type:"HORISTA",profile:"HORISTA",admission_date:null,scheduled_start_date:null,
    weekly_schedule:null,coordinator_name:null,geniale_manager:null,job_title:"Promotor Horista",
    employment_source:"Controle Operacional Horistas.xlsx",transport_mode:first.modal||null,vehicle_type:null,mob2:null,source_row:first.source_row
@@ -180,8 +181,8 @@ async function loadData(){
  for(const [sector,rows] of groups){
   const names=[...new Set(rows.map(x=>String(x.promoter_name||"").trim()).filter(Boolean))];
   if(!names.length)continue;
-  occupancies.push({
-   id:"source-occ:"+sector,scenario_code:"C2",sector_code:sector,promoter_id:personId(names[0]),
+  for(const name of names)occupancies.push({
+   id:"source-occ:"+sector+":"+personId(name),scenario_code:"C2",sector_code:sector,promoter_id:personId(name),
    start_date:null,end_date:null,change_reason:names.length>1?"Mais de um promotor informado na fonte":"Vínculo informado na fonte oficial",
    source_name:"CONTROLE_OPERACIONAL_HORISTAS",created_at:sourceState?.processed_at||null
   });

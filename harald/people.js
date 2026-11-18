@@ -13,6 +13,7 @@ const privateBy=id=>state.privateRows.find(p=>p.promoter_id===id);
 const sectorBy=(s,sc=state.scenario)=>state.sectors.find(t=>t.sc===sc&&t.sector===s);
 const occupancyBy=(s,sc=state.scenario)=>state.occupancies.filter(x=>x.scenario_code===sc&&x.sector_code===s).sort((a,b)=>String(b.start_date).localeCompare(String(a.start_date)));
 const openOcc=(s,sc=state.scenario)=>occupancyBy(s,sc).find(x=>!x.end_date);
+const currentPeople=s=>occupancyBy(s).filter(x=>!x.end_date).map(o=>pby(o.promoter_id)).filter(Boolean);
 const occPerson=id=>state.occupancies.filter(o=>o.promoter_id===id).sort((a,b)=>String(b.start_date).localeCompare(String(a.start_date)));
 const badge=(text,cls="")=>`<span class="hpBadge ${cls}">${E(text)}</span>`;
 const detail=(k,v)=>`<div class="hpDetail"><span>${E(k)}</span><strong>${E(v??"Não informado")}</strong></div>`;
@@ -29,8 +30,8 @@ const model=t=>t?.model==="FULLTIME"?"Fulltime":t?.model==="PARTTIME"?"Parttime"
 const contract=t=>t?.model==="HORISTA"?"HORISTA":"CLT";
 const friendlyStatus=v=>v==="ATIVO"?"Ativo no cadastro":v==="PENDENTE"?"Pendente":v==="DESLIGADO"?"Desligado":v||"Não informado";
 const sectorList=()=>state.sectors.filter(t=>t.sc===state.scenario&&(state.filter==="ALL"||contract(t)===state.filter)).filter(t=>{
- const p=pby(openOcc(t.sector)?.promoter_id);
- return (state.contact==="ALL"||(state.contact==="WITH"?hasPeoplePhone(p):!hasPeoplePhone(p)))&&(!state.search||[t.sector,t.uf,t.cities,t.model,p?.full_name,p?.registration_number,p?.whatsapp].join(" ").toLocaleLowerCase("pt-BR").includes(state.search.toLocaleLowerCase("pt-BR")));
+ const all=currentPeople(t.sector),p=all[0];
+ return (state.contact==="ALL"||(state.contact==="WITH"?all.some(hasPeoplePhone):!all.some(hasPeoplePhone)))&&(!state.search||[t.sector,t.uf,t.cities,t.model,...all.flatMap(p=>[p.full_name,p.registration_number,p.whatsapp])].join(" ").toLocaleLowerCase("pt-BR").includes(state.search.toLocaleLowerCase("pt-BR")));
 });
 function header(){
  return `<header class="hpHeader"><div class="hpBrand"><div class="hpMark">H</div><div><b>GENIALE <span>· HARALD</span></b><small>Central de equipes e histórico</small></div></div><div class="hpHeaderRight"><span class="hpSecure">🔒 ${state.role==="admin"?"Administrador":state.role==="editor"?"Editor":"Consulta"}</span><button type="button" class="hpClose" data-hpa="close" title="Voltar ao painel">✕ <span>Voltar ao painel</span></button></div></header>`;
@@ -49,7 +50,7 @@ function controls(forceList=false){
 }
 function dash(){
  const teams=sectorList(),occupied=teams.filter(t=>!!openOcc(t.sector)),missing=teams.length-occupied.length;
- const unique=new Set(occupied.map(t=>openOcc(t.sector)?.promoter_id).filter(Boolean)).size;
+ const unique=new Set(occupied.flatMap(t=>currentPeople(t.sector).map(p=>p.id))).size;
  return `<div class="hpMetrics">${[
   ["Vagas Horistas",teams.length,"Setores na fonte oficial","blue"],
   ["Preenchidas",occupied.length,"Setores com promotor","green"],
@@ -61,8 +62,7 @@ function hasPeoplePhone(p){
  return digits.length===10||digits.length===11||(digits.startsWith("55")&&(digits.length===12||digits.length===13));
 }
 function hasSectorPhone(t){
- const p=pby(openOcc(t.sector)?.promoter_id);
- return hasPeoplePhone(p);
+ return currentPeople(t.sector).some(hasPeoplePhone);
 }
 function peopleContactCount(items){
  const yes=items.filter(hasSectorPhone).length;
@@ -73,8 +73,8 @@ function sectorCard(t){
  return `<button class="hpSectorListRow ${has?"":"noContact"}" type="button" data-hpa="openSector" data-sector="${E(t.sector)}" aria-label="Abrir ficha e histórico do setor ${E(t.sector)}, ${has?"com contato":"sem contato"}">
  <span class="hpSectorId"><strong>${E(t.sector)}</strong><small>${E(model(t))} · ${E(t.modal||"Modal não informado")}</small></span>
  <span class="hpSectorCities">${E(t.cities||t.uf||"Cidades não informadas")}</span>
- <span class="hpSectorOwner"><span class="hpAvatar">${E(initials(p?.full_name))}</span><span><strong>${E(p?.full_name||"VAGA OPEN")}</strong><small>${E(p?((p.registration_number?"Matrícula "+p.registration_number:"Matrícula não informada")):"Sem promotor vinculado")}</small></span></span>
- <span class="hpSectorContact">${badge(o?"ATIVO":"VAGA OPEN",o?"active":"scheduled")}<small>${has?E(p.whatsapp):o?"Telefone ausente ou inválido":"Sem promotor"}</small></span>
+ <span class="hpSectorOwner"><span class="hpAvatar">${E(initials(p?.full_name))}</span><span><strong>${E(currentPeople(t.sector).map(p=>p.full_name).join(" / ")||"VAGA OPEN")}</strong><small>${E(p?((p.registration_number?"Matrícula "+p.registration_number:"Matrícula não informada")):"Sem promotor vinculado")}</small></span></span>
+ <span class="hpSectorContact">${badge(o?"ATIVO":"VAGA OPEN",o?"active":"scheduled")}<small>${currentPeople(t.sector).length>1?"Contatos nas fichas individuais":has?E(p.whatsapp):o?"Telefone ausente ou inválido":"Sem promotor"}</small></span>
  <span class="hpSectorHours"><strong>${E(t.pdvs||0)} lojas</strong><small>${E(t.hours||0)}h / semana</small></span>
  <span class="hpSectorArrow" aria-hidden="true">›</span>
  </button>`;
@@ -141,7 +141,7 @@ function renderSector(){
  const st=statusFor(o,p);
  const storeList=state.stores.filter(x=>x.sc===state.scenario&&x.sector===t.sector);
  return `<div class="hpTitleRow"><div><span class="hpEyebrow">SETOR PERMANENTE · ${E(t.uf)}</span><h1>${E(t.sector)}</h1><p>${E(t.cities||"")} · ${E(t.region||"")}</p></div>${badge(model(t),"blue")}</div>${controls()}
- <div class="hpHeroGrid"><div class="hpHeroCard"><span>01 / VAGA E ROTEIRO</span><strong>${E(t.sector)}</strong><p>O código, a carga e as lojas permanecem iguais quando o responsável muda.</p><div class="hpHeroFacts">${detail("PDVs",t.pdvs)}${detail("Visitas semanais",t.visits)}${detail("Atendimento",String(t.hours||0)+"h")}${detail("Transporte",t.modal)}</div></div><div class="hpHeroCard person"><span>02 / RESPONSÁVEL VINCULADO</span><div class="hpHeroPerson"><div class="hpAvatar large">${E(initials(p?.full_name))}</div><div><strong>${E(p?.full_name||"Sem cadastro")}</strong>${badge(st.label,st.cls)}</div></div><p>${p?.profile?"Perfil "+E(p.profile)+" · ":""}${p?.registration_number?"Matrícula "+E(p.registration_number):"Matrícula pendente"}</p>${p?`<button class="hpSoft" data-hpa="openPerson" data-id="${E(p.id)}">Abrir ficha do promotor →</button>`:""}${okWrite()?`<button class="hpPrimary" data-hpa="replace">＋ ${p?"Registrar substituição":"Alocar promotor"}</button>`:""}</div></div>
+ <div class="hpHeroGrid"><div class="hpHeroCard"><span>01 / VAGA E ROTEIRO</span><strong>${E(t.sector)}</strong><p>O código, a carga e as lojas permanecem iguais quando o responsável muda.</p><div class="hpHeroFacts">${detail("PDVs",t.pdvs)}${detail("Visitas semanais",t.visits)}${detail("Atendimento",String(t.hours||0)+"h")}${detail("Transporte",t.modal)}</div></div><div class="hpHeroCard person"><span>02 / RESPONSÁVEL VINCULADO</span><div class="hpHeroPerson"><div class="hpAvatar large">${E(initials(p?.full_name))}</div><div><strong>${E(currentPeople(t.sector).map(p=>p.full_name).join(" / ")||"Sem cadastro")}</strong>${badge(st.label,st.cls)}</div></div><p>${p?.profile?"Perfil "+E(p.profile)+" · ":""}${p?.registration_number?"Matrícula "+E(p.registration_number):"Matrícula pendente"}</p>${p?`<button class="hpSoft" data-hpa="openPerson" data-id="${E(p.id)}">Abrir ficha do promotor →</button>`:""}${okWrite()?`<button class="hpPrimary" data-hpa="replace">＋ ${p?"Registrar substituição":"Alocar promotor"}</button>`:""}</div></div>
  <div class="hpTwoCols"><section class="hpPanel"><div class="hpPanelTitle"><h2>Histórico de ocupação</h2>${badge(`${occ.length} registro(s)`,"violet")}</div><div class="hpOccupancies">${occ.map(x=>{const who=pby(x.promoter_id),ss=statusFor(x,who);return `<div class="hpOccupancy"><div class="hpOccupancyTop"><b>${E(who?.full_name||"Profissional não encontrado")}</b>${badge(ss.label,ss.cls)}</div><small>${D(x.start_date)} → ${x.end_date?D(x.end_date):"sem encerramento informado"}</small>${x.change_reason?`<p>Motivo: ${E(x.change_reason)}</p>`:""}<button class="hpTextBtn" data-hpa="openPerson" data-id="${E(x.promoter_id)}">Ver ficha e anotações →</button></div>`}).join("")}</div>${!occ.length?`<div class="hpEmpty tiny">Nenhuma ocupação cadastrada. O setor permanece na sistemática.</div>`:""}</section>
  <section class="hpPanel"><div class="hpPanelTitle"><h2>Lojas do setor</h2>${badge(`${storeList.length} PDVs`,"blue")}</div><div class="hpMiniStores">${storeList.slice(0,30).map(x=>`<div><b>${E(x.n)}</b><span>${E(x.city)} / ${E(x.uf)} · ${E(x.w1||"Semana 1 sem visita")}</span></div>`).join("")}</div></section></div>
  <section class="hpPanel"><div class="hpPanelTitle"><h2>Linha do tempo do setor</h2><span class="hpPanelHint">Anotações continuam aqui mesmo após substituições</span></div>${noteForm("sector",t.sector,state.scenario)}${timeline("sector",t.sector,state.scenario)}</section>
@@ -161,7 +161,7 @@ function renderPerson(){
  const p=pby(state.person),o=p?occPerson(p.id)[0]:null,pr=privateBy(p?.id);
  if(!p)return `<div class="hpEmpty">Profissional não encontrado.</div>`;
  const linkedSectorCodes=new Set(occPerson(p.id).filter(o=>o.scenario_code===state.scenario&&!o.end_date).map(o=>o.sector_code));
- const linkedStores=state.stores.filter(store=>store.sc===state.scenario&&linkedSectorCodes.has(store.sector));
+ const linkedStores=state.stores.filter(store=>store.sc===state.scenario&&(Object.hasOwn(store,"promoterId")?store.promoterId===p.id:linkedSectorCodes.has(store.sector)));
  const restricted=state.role==="admin";
  return `<div class="hpTitleRow"><div><span class="hpEyebrow">FICHA INDIVIDUAL DO PROFISSIONAL</span><h1>${E(p.full_name)}</h1><p>${E(p.job_title||"Promotor de merchandising")} · ${E(p.coordinator_name||"Coordenação não informada")}</p></div><div>${badge(friendlyStatus(p.status),p.status==="ATIVO"?"active":"muted")}${badge(p.profile||"Perfil pendente","violet")}</div></div>${controls()}
  <div class="hpPersonHeader"><div class="hpAvatar xl">${E(initials(p.full_name))}</div><div class="hpPersonHeaderMain"><span>MATRÍCULA</span><strong>${E(p.registration_number||"Pendente de cadastro")}</strong><small>Início previsto / admissão: ${D(p.admission_date||o?.start_date)} · ${E(p.hiring_type||"Tipo pendente")}</small></div><div class="hpPersonHeaderActions">${p.whatsapp?`<button class="hpWhatsapp" data-hpa="whatsapp">◉ Enviar WhatsApp</button>`:""}${okWrite()?`<button class="hpSoft" data-hpa="editPerson">Editar status e perfil</button>`:""}</div></div>
@@ -243,7 +243,7 @@ function bindNav(){
   const list=document.querySelector(".navList");
   if(list){const b=document.createElement("button");b.className="navBtn";b.type="button";b.id="hpNavEntry";b.innerHTML='<span class="hpNavIcon">◷</span><span>Equipe e histórico</span><span class="navBadge" id="hpNavCount">0</span>';b.onclick=()=>open("sectors");list.appendChild(b);}
  }
- const count=document.getElementById("hpNavCount");if(count)count.textContent=String(state.occupancies.filter(x=>x.scenario_code==="C2"&&!x.end_date).length);
+ const count=document.getElementById("hpNavCount");if(count)count.textContent=String(new Set(state.occupancies.filter(x=>x.scenario_code==="C2"&&!x.end_date).map(x=>x.sector_code)).size);
  if(!window.__haraldPeopleClicks){
   window.__haraldPeopleClicks=true;
   document.addEventListener("click",e=>{

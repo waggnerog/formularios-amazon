@@ -34,7 +34,9 @@ function key(sc,sector){return `${sc}|${sector}`;}
 function getMaps(){
  const d=st.data||{},sc=st.ctx?.scenario||"C2";
  const persons=new Map((d.persons||[]).map(p=>[p.id,p]));
- const assigns=new Map((d.occupancies||[]).filter(x=>x.scenario_code===sc&&!x.end_date).map(x=>[x.sector_code,x]));
+ const currentLinks=(d.occupancies||[]).filter(x=>x.scenario_code===sc&&!x.end_date);
+ const assigns=new Map(currentLinks.map(x=>[x.sector_code,x]));
+ const assignments=new Map();for(const link of currentLinks){if(!assignments.has(link.sector_code))assignments.set(link.sector_code,[]);assignments.get(link.sector_code).push(link);}
  const statuses=new Map((d.sectorStatuses||[]).filter(x=>x.scenario_code===sc).map(x=>[x.sector_code,x]));
  const candidates=new Map();
  for(const c of (d.sectorCandidates||[]).filter(x=>x.scenario_code===sc&&x.active_source_record!==false)){
@@ -42,7 +44,7 @@ function getMaps(){
   candidates.get(c.sector_code).push(c);
  }
  const stores=new Map((d.stores||[]).filter(x=>x.sc===sc).map(x=>[String(x.src),x]));
- return {persons,assigns,statuses,candidates,stores};
+ return {persons,assigns,assignments,statuses,candidates,stores};
 }
 function scopedTeams(ufSet=null){
  const c=st.ctx;if(!c)return[];
@@ -53,6 +55,7 @@ function scopedStores(ufSet=null){
  return c.stores.filter(x=>!ufSet||ufSet.has(x.uf));
 }
 function countDistinctStores(list){return new Set(list.map(s=>String(s.src??s.id))).size;}
+function activeInfos(team,maps){return (maps.assignments.get(team.sector)||[]).flatMap(link=>{const person=maps.persons.get(link.promoter_id);return person?[{person,link,isActive:true,isUpcoming:false}]:[];});}
 function activeInfo(team,maps){
  const link=maps.assigns.get(team.sector);if(!link)return null;
  const person=maps.persons.get(link.promoter_id);
@@ -83,11 +86,11 @@ function analyze({model=null,ufSet=null,activeOnly=false}={}){
  const storeRows=scopedStores(ufSet).filter(s=>fullSectors.includes(s.sector));
  const peopleMap=new Map(),upcomingIds=new Set(),links=new Set();
  for(const t of teams){
-  const info=activeInfo(t,maps);
-  if(!info)continue;
-  links.add(info.person.id);
-  if(info.isUpcoming)upcomingIds.add(info.person.id);
-  if(info.isActive)peopleMap.set(info.person.id,info.person);
+  for(const info of activeInfos(t,maps)){
+   links.add(info.person.id);
+   if(info.isUpcoming)upcomingIds.add(info.person.id);
+   if(info.isActive)peopleMap.set(info.person.id,info.person);
+  }
  }
  const days=(st.data?.routeDays||[]).filter(x=>x.scenario_code===ctx.scenario&&x.scheduled!==false&&sectors.has(x.sector_code)&&(!ufSet||ufSet.has(maps.stores.get(String(x.store_key))?.uf)));
  const activeTeams=new Set(teams.filter(t=>activeInfo(t,maps)?.isActive).map(t=>t.sector));
@@ -95,7 +98,10 @@ function analyze({model=null,ufSet=null,activeOnly=false}={}){
   const w1=list.filter(x=>Number(x.cycle_week)===1).length,w2=list.filter(x=>Number(x.cycle_week)===2).length;
   return st.week==="1"?w1:st.week==="2"?w2:(w1+w2)/2;
  };
- const planned=selectCount(days),plannedAssigned=selectCount(days.filter(x=>activeTeams.has(x.sector_code)));
+ const planned=selectCount(days),plannedAssigned=selectCount(days.filter(x=>{
+  const store=maps.stores.get(String(x.store_key));
+  return Object.hasOwn(store||{},"promoterName")?Boolean(store.promoterName):activeTeams.has(x.sector_code);
+ }));
  const actual=availableActuals(ctx.scenario,st.week,sectors,ufSet,maps);
  const assignedActual=availableActuals(ctx.scenario,st.week,activeTeams,ufSet,maps);
  const filledSectors=teams.filter(t=>maps.assigns.has(t.sector)).length;
@@ -189,18 +195,18 @@ function geographyDetails(){
  const matchesCoverage=sector=>st.coverageFilter==="all"||(st.coverageFilter==="active"?maps.assigns.has(sector):st.coverageFilter==="open"?!maps.assigns.has(sector):pendingSectors.has(sector));
  const rows=allRows.filter(team=>matchesCoverage(team.sector));
  const storeRows=(st.uf?scopedStores(new Set([st.uf])):[]).filter(store=>matchesCoverage(store.sector)).sort((a,b)=>String(a.n).localeCompare(String(b.n),"pt-BR"));
- const personRows=rows.map(team=>({team,who:activeInfo(team,maps)})).filter(x=>x.who);
+ const personRows=rows.flatMap(team=>activeInfos(team,maps).map(who=>({team,who})));
  const peopleIds=new Set(personRows.map(x=>x.who.person.id));
  const allAreas=mode==="region"?REGIONS[st.region]:Object.keys(REGIONS);
  const areaList=mode==="uf"?[]:mode==="national"?allAreas.map(region=>({title:region,id:region,level:"region",...analyze({ufSet:new Set(REGIONS[region])})})):
  allAreas.map(uf=>({title:UF_NAMES[uf],id:uf,level:"uf",...analyze({ufSet:new Set([uf])})}));
  const sectorList=rows.map(team=>{
   const p=activeInfo(team,maps)?.person,status=p?"active":"open";
-  const owner=p?.full_name||"Sem promotor · vaga aberta";
+  const owner=activeInfos(team,maps).map(x=>x.person.full_name).join(" / ")||"Sem promotor · vaga aberta";
   return `<button type="button" data-hd-sector="${esc(team.sector)}" class="hdMapSector hdDetailRow" aria-label="Abrir setor ${esc(team.sector)}"><span class="hdRowIcon">▦</span><span class="hdDetailRowText"><b>${esc(team.sector)}</b><small>${esc(team.model==="HORISTA"?"Horista":team.model==="PARTTIME"?"Parttime":"Fulltime")} · ${esc(team.cities||team.uf||"")} · ${nfmt(team.pdvs)} loja(s)</small><small>${esc(owner)}</small>${pendingSectors.has(team.sector)?'<small class="hdAttention">⚠ Pendência cadastral na fonte</small>':""}</span><span class="hdSectorStatus ${esc(status||"unknown")}">${esc(STATUS[status]?.label||"Status pendente")}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
  }).join("");
  const storeList=storeRows.map(store=>{
-  const assigned=maps.assigns.has(store.sector),status=assigned?"active":"open";
+  const assigned=Object.hasOwn(store,"promoterName")?Boolean(store.promoterName):maps.assigns.has(store.sector),status=assigned?"active":"open";
   return `<button type="button" data-hd-store="${esc(store.id)}" class="hdMapSector hdDetailRow" aria-label="Abrir loja ${esc(store.n)}"><span class="hdRowIcon">⌂</span><span class="hdDetailRowText"><b>${esc(store.n)}</b><small>${esc(store.city||"")} · ${esc(store.sector)}</small></span><span class="hdSectorStatus ${status}">${STATUS[status].label}</span><span class="hdChevron" aria-hidden="true">›</span></button>`;
  }).join("");
  const uniquePeople=[...new Map(personRows.map(v=>[v.who.person.id,v])).values()];

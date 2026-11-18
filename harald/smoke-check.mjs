@@ -14,7 +14,7 @@ assert.deepEqual(data.stores,[],'Lojas nao podem estar embutidas no HTML publico
 assert.deepEqual(data.teams,[],'Setores nao podem estar embutidos no HTML publico');
 assert.ok(html.includes('href="./cloud.css"'),'Estilo de login nao carregado');
 assert.match(html,/src="\.\/cloud\.js(?:\?[^"]+)?"/,'Cliente Supabase nao carregado');
-assert.ok(html.includes('src="./people.js"'),'Central de pessoas nao carregada');
+assert.match(html,/src="\.\/people\.js(?:\?[^"]+)?"/,'Central de pessoas nao carregada');
 assert.ok(html.includes('href="./lists.css"'),'CSS da lista de setores ausente');
 assert.ok(html.includes('class="sectorListRow'),'Setores nao sao exibidos como linhas');
 assert.ok(html.includes('data-filter="contact"'),'Filtro de contato ausente');
