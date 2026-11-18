@@ -26,3 +26,5 @@ jobs:
         run: node harald/smoke-check.mjs
       - name: Validate HARALD dashboard and Brazil map
         run: node harald/dashboard-smoke.mjs
+      - name: Validate shared sectors and store ownership
+        run: node harald/assignments-smoke.mjs
